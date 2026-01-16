@@ -1,4 +1,4 @@
-name: WIN11_RTX5090_TOTAL_CONVERSION
+name: WIN11_RTX5090_LITE
 on: 
   workflow_dispatch:
 
@@ -35,34 +35,18 @@ jobs:
               Set-ItemProperty -Path $_.PSPath -Name "ProcessorNameString" -Value "AMD Ryzen 9 7950X3D 16-Core Processor" -Force
           }
 
-      - name: 🎨 2. TOTAL CONVERSION (LOOK & FEEL)
+      - name: 🎨 2. TOTAL CONVERSION (OPTIMIZADO)
         shell: powershell
         run: |
-          Write-Host "[*] Transformando Server a Home..." -ForegroundColor Magenta
+          Write-Host "[*] Ajustando interfaz..." -ForegroundColor Magenta
 
-          # 1. FONDO DE PANTALLA OFICIAL (BLOOM DARK)
-          # Esto es critico: El fondo azul de Server delata todo. El fondo Bloom grita "Windows 11".
-          $wallpaperPath = "C:\Users\Public\win11_bloom.jpg"
-          Invoke-WebRequest -Uri "https://images.wallpapersden.com/image/download/windows-11-dark-stock-official_bGlmaGaUmZqaraWkpJRmbmdlrWZlbWU.jpg" -OutFile $wallpaperPath
-          
-          # Codigo C# para aplicar wallpaper instantaneo
-          $code = @'
-          using System.Runtime.InteropServices;
-          public class Wallpaper {
-              [DllImport("user32.dll", CharSet = CharSet.Auto)]
-              public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
-          }
-          '@
-          Add-Type -TypeDefinition $code -MemberDefinition 'public static void Set() { Wallpaper.SystemParametersInfo(20, 0, "C:\\Users\\Public\\win11_bloom.jpg", 3); }' -Name "Wp" -Namespace "Win"
-          [Win.Wp]::Set()
-
-          # 2. ACTIVAR EFECTOS VISUALES (VisualFX)
+          # 1. ACTIVAR EFECTOS VISUALES (VisualFX)
           # Server viene en modo "Rendimiento" (feo). Lo ponemos en "Apariencia".
           $visualEffects = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects"
           if (!(Test-Path $visualEffects)) { New-Item -Path $visualEffects -Force }
           Set-ItemProperty -Path $visualEffects -Name "VisualFXSetting" -Value 1 -Force 
 
-          # 3. TASKBAR: BARRA DE BUSQUEDA Y TRANSPARENCIA
+          # 2. TASKBAR: BARRA DE BUSQUEDA Y TRANSPARENCIA
           $searchKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search"
           Set-ItemProperty -Path $searchKey -Name "SearchboxTaskbarMode" -Value 1 -Force
           
@@ -72,10 +56,10 @@ jobs:
           Set-ItemProperty -Path $personalize -Name "AppsUseLightTheme" -Value 0 -Force # Modo Oscuro
           Set-ItemProperty -Path $personalize -Name "SystemUsesLightTheme" -Value 0 -Force
 
-          # 4. OCULTAR MARCA DE AGUA DE EVALUACION/VERSION
+          # 3. OCULTAR MARCA DE AGUA
           Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "PaintDesktopVersion" -Value 0 -Force
 
-          Write-Host "[OK] Estética Windows 11 Home Dark aplicada."
+          Write-Host "[OK] Estética ajustada (Fondo Original)."
 
       - name: 🇪🇸 3. REGION RAPIDA
         shell: powershell
