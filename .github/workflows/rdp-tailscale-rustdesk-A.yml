@@ -1,48 +1,52 @@
-name: 🐀 RATA_SUNSHINE_PRO_TUNNEL
-on: workflow_dispatch
+name: 🐀 RATA_SUNSHINE_TAILSCALE
+on: 
+  workflow_dispatch:
+    inputs:
+      tailscale_key:
+        description: 'Tu Auth Key de Tailscale'
+        required: true
 
 jobs:
   gaming-heist:
     runs-on: windows-latest
     steps:
-      - name: 🏎️ 1. RAM 32GB (MÉTODO REGISTRO)
+      - name: 🏎️ 1. RAM 32GB (REGISTRO)
         shell: powershell
         run: |
           reg add "HKLM\System\CurrentControlSet\Control\Session Manager\Memory Management" /v PagingFiles /t REG_MULTI_SZ /d "D:\pagefile.sys 32768 32768" /f
-          Write-Host "[OK] RAM lista."
 
-      - name: 👁️ 2. INSTALAR MONITOR VIRTUAL (TU LINK GANADOR)
+      - name: 👁️ 2. MONITOR VIRTUAL (TU LINK GANADOR)
         shell: powershell
         run: |
           $url = "https://github.com/VirtualDrivers/Virtual-Display-Driver/releases/download/25.5.2/Virtual.Display.Driver-v25.05.03-setup-x64.exe"
           curl -L -o setup_monitor.exe $url
           Start-Process -FilePath ".\setup_monitor.exe" -ArgumentList "/S" -Wait
-          Write-Host "[OK] Ojos instalados."
 
-      - name: ☀️ 3. SUNSHINE (EL REY)
+      - name: 🚇 3. TAILSCALE (EL TUNEL DEFINITIVO)
+        shell: powershell
+        run: |
+          # Instalamos Tailscale para saltar el Firewall de Microsoft
+          choco install tailscale -y
+          # Nos conectamos a tu red privada
+          & "C:\Program Files\Tailscale\tailscale.exe" up --authkey ${{ github.event.inputs.tailscale_key }}
+
+      - name: ☀️ 4. SUNSHINE (EL REY)
         shell: powershell
         run: |
           choco install sunshine -y
-          Write-Host "[OK] Sunshine instalado."
-
-      - name: 🚇 4. CLOUDFLARE TUNNEL (EL SALTA-FIREWALLS)
-        shell: powershell
-        run: |
-          # Descargamos el túnel para saltar el firewall de Microsoft
-          curl -L -o cloudflared.msi https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.msi
-          msiexec.exe /i cloudflared.msi /quiet
-          
-          Write-Host "--- ESPERANDO AL LINK DEL TÚNEL ---"
-          # Creamos el túnel para el panel de Sunshine (Puerto 47990)
-          Start-Process "C:\Program Files (x86)\cloudflared\cloudflared.exe" -ArgumentList "tunnel --url http://localhost:47990" -RedirectStandardOutput "tunnel_log.txt"
-          Start-Sleep -Seconds 15
-          Get-Content "tunnel_log.txt" | Select-String "trycloudflare.com"
-
-      - name: 🎮 5. BOOSTER: MESA3D Y CONTROLES
-        shell: powershell
-        run: |
+          # Inyectamos Mesa3D para que el AMD EPYC actúe como GPU
           choco install mesa3d-pal1000 vigembus -y
-          Write-Host "[OK] Configuración gaming lista."
+
+      - name: 📊 5. DATOS DE CONEXIÓN
+        shell: powershell
+        run: |
+          $ip = & "C:\Program Files\Tailscale\tailscale.exe" ip -4
+          Write-Host "========================================"
+          Write-Host "IP PRIVADA TAILSCALE: $ip"
+          Write-Host "1. Abre Moonlight en tu cel (conectado a Tailscale)."
+          Write-Host "2. Agrega la IP: $ip"
+          Write-Host "3. Si necesitas configurar Sunshine: https://$($ip):47990"
+          Write-Host "========================================"
 
       - name: 🔄 MANTENER VIVO
         run: |
