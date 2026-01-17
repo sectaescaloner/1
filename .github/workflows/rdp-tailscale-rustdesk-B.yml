@@ -15,7 +15,7 @@ jobs:
         with:
           python-version: '3.10'
       - name: Install Requests
-        run: pip install requests
+        run: pip install aiohttp requests
       - name: Run Neural Node
         run: python agente.py
 
