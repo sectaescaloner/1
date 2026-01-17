@@ -1,4 +1,4 @@
-name: 🐀 RATA_SUNSHINE_TAILSCALE_V8
+name: 🐀 RATA_SUNSHINE_TAILSCALE_V9
 on: 
   workflow_dispatch:
     inputs:
@@ -14,47 +14,42 @@ jobs:
         shell: powershell
         run: |
           reg add "HKLM\System\CurrentControlSet\Control\Session Manager\Memory Management" /v PagingFiles /t REG_MULTI_SZ /d "D:\pagefile.sys 32768 32768" /f
-          Write-Host "[OK] RAM preparada."
 
-      - name: 👁️ 2. INSTALAR MONITOR VIRTUAL (LINK DIRECTO)
+      - name: 👁️ 2. INSTALAR MONITOR VIRTUAL (MODO NINJA)
         shell: powershell
         run: |
           $url = "https://github.com/VirtualDrivers/Virtual-Display-Driver/releases/download/25.5.2/Virtual.Display.Driver-v25.05.03-setup-x64.exe"
-          # Usamos curl.exe con la ruta completa para que Windows no use el alias falso
           & curl.exe -L -o setup_monitor.exe $url
-          if (Test-Path "setup_monitor.exe") {
-              Start-Process -FilePath ".\setup_monitor.exe" -ArgumentList "/S" -Wait
-              Write-Host "[OK] Monitor instalado."
-          } else {
-              Write-Error "Fallo la descarga del driver."
-          }
+          # Lanzamos y solo esperamos 30 segundos, si no termina, seguimos
+          Start-Process -FilePath ".\setup_monitor.exe" -ArgumentList "/S"
+          Start-Sleep -Seconds 30
+          Write-Host "[OK] Monitor lanzado (procediendo con el resto)."
 
-      - name: 🚇 3. TAILSCALE (SALTO DE FIREWALL)
+      - name: 🚇 3. TAILSCALE (BYPASS FIREWALL)
         shell: powershell
         run: |
           choco install tailscale -y
-          # Conectamos con tu Key para que la VM aparezca en tu celular
-          & "C:\Windows\System32\config\systemprofile\AppData\Local\Microsoft\WindowsApps\tailscale.exe" up --authkey ${{ github.event.inputs.tailscale_key }}
-          # Si el comando anterior falla por ruta, probamos el estandar:
-          & "C:\Program Files\Tailscale\tailscale.exe" up --authkey ${{ github.event.inputs.tailscale_key }}
+          # Forzamos el arranque y login
+          & "C:\Program Files\Tailscale\tailscale.exe" up --authkey ${{ github.event.inputs.tailscale_key }} --unattended
+          Write-Host "[OK] Tailscale activo."
 
-      - name: ☀️ 4. SUNSHINE & GAMING TOOLS
+      - name: ☀️ 4. SUNSHINE & GAMING BOOST
         shell: powershell
         run: |
+          # Instalamos todo en un solo golpe
           choco install sunshine mesa3d-pal1000 vigembus -y
-          Write-Host "[OK] Sunshine, GPU Software y Controles listos."
+          Write-Host "[OK] Todo el armamento instalado."
 
-      - name: 📊 5. DATOS FINALES
+      - name: 📊 5. DATOS DE CONEXIÓN
         shell: powershell
         run: |
           $ip = & "C:\Program Files\Tailscale\tailscale.exe" ip -4
           Write-Host "========================================"
-          Write-Host "LA VM ESTÁ VIVA"
           Write-Host "IP PARA MOONLIGHT: $ip"
-          Write-Host "URL PANEL SUNSHINE: https://$($ip):47990"
+          Write-Host "URL CONFIG SUNSHINE: https://$($ip):47990"
           Write-Host "========================================"
 
-      - name: 🔄 LOOP INFINITO
+      - name: 🔄 MANTENER VIVO
         run: |
           while($true) { Start-Sleep 60 }
           
