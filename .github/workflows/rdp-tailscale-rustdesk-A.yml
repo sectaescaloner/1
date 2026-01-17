@@ -1,70 +1,69 @@
-name: 🐀 RATA_SUPREMA_GTA5_FINAL_V5
+name: 🐀 RATA_SUPREMA_POWERSHELL_V6
 on: 
   workflow_dispatch:
     inputs:
       reemo_key:
-        description: 'Pega tu Private Key de Reemo.io'
+        description: 'Tu Private Key de Reemo.io'
         required: true
 
 jobs:
   gaming-heist:
     runs-on: windows-latest
     steps:
-      - name: 🏎️ 1. OVERCLOCK DE RAM Y CPU (32GB VIRTUAL-REAL)
+      - name: 🏎️ 1. BOOST DE RAM (32GB EN DISCO D) - MÉTODO MODERNO
         shell: powershell
         run: |
-          # 32GB de RAM en el Disco D (NVMe de Microsoft)
-          wmic computersystem where name="%computername%" set AutomaticManagedPagefile=False
-          wmic pagefileset create name="D:\pagefile.sys",InitialSize=32768,MaximumSize=32768
+          Write-Host "[*] Aplicando esteroides a la RAM..." -ForegroundColor Cyan
+          # Desactivamos el manejo automático de RAM (El reemplazo de wmic)
+          $sys = Get-CimInstance Win32_ComputerSystem
+          Set-CimInstance -CimInstance $sys -Property @{AutomaticManagedPagefile = $False}
           
-          # Prioridad de CPU para que el GTA no se arrastre
+          # Creamos el archivo de 32GB en el Disco D: (NVMe rápido)
+          New-CimInstance -ClassName Win32_PageFileSetting -Property @{Name="D:\pagefile.sys"; InitialSize=32768; MaximumSize=32768}
+          
+          # Prioridad de CPU y Energía
           reg add "HKLM\System\CurrentControlSet\Control\PriorityControl" /v Win32PrioritySeparation /t REG_DWORD /d 26 /f
           powercfg /s 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c
+          Write-Host "[OK] RAM de 32GB configurada en D:"
 
-      - name: 👁️ 2. IMPLANTE DE OJOS (DRIVER DE MONITOR - MÉTODO ROBUSTO)
+      - name: 👁️ 2. IMPLANTE DE OJOS (DRIVER DE MONITOR - ANTI-404)
         shell: powershell
         run: |
-          # Usamos curl.exe -L para evitar el error de redirección (404)
-          # Este link es el oficial directo del repositorio de MikeTheTech
-          curl.exe -L -o v_driver.zip "https://github.com/itsmikethetech/Virtual-Display-Driver/releases/download/2.3/IddSampleDriver.zip"
+          Write-Host "[*] Instalando ojos a la VM..."
+          # Usamos un link directo que apunta al último release estable
+          $url = "https://github.com/itsmikethetech/Virtual-Display-Driver/releases/latest/download/IddSampleDriver.zip"
+          curl.exe -L -o v_driver.zip $url
           
-          if (Test-Path "v_driver.zip") {
-              Expand-Archive "v_driver.zip" -DestinationPath "C:\v_driver" -Force
-              pnputil /add-driver C:\v_driver\IddSampleDriver.inf /install
-              Write-Host "[OK] Monitor virtual instalado con éxito."
-          } else {
-              Write-Error "[!] No se pudo descargar el driver. Intentando backup..."
-          }
+          Expand-Archive "v_driver.zip" -DestinationPath "C:\v_driver" -Force
+          pnputil /add-driver C:\v_driver\IddSampleDriver.inf /install
+          Write-Host "[OK] Monitor virtual de 60Hz activo."
 
       - name: 🎮 3. MESA3D (FORZAR CPU COMO GPU)
         shell: powershell
         run: |
-          # Instalamos Mesa3D para que el AMD EPYC dibuje los gráficos
-          # Chocolatey es más confiable para links que no mueren
+          # Chocolatey es la vieja confiable para no lidiar con links rotos
           choco install mesa3d-pal1000 -y
-          Write-Host "[OK] Implante gráfico inyectado."
+          Write-Host "[OK] Motor gráfico inyectado."
 
       - name: 🕹️ 4. CONTROLES DE GAMING (VIGEMBUS)
         shell: powershell
         run: |
-          # Driver de controles para que el GTA 5 reconozca tu teclado/mando
           choco install vigembus -y
           Write-Host "[OK] Driver de mando Xbox configurado."
 
-      - name: 📺 5. REEMO.IO (STREAMING POR NAVEGADOR)
+      - name: 📺 5. REEMO.IO (STREAMING PARA RATAS PRO)
         shell: powershell
         run: |
-          # Instalador oficial de Reemo
           curl.exe -L -o reemo.msi "https://download.reemo.io/windows/Reemo.msi"
           msiexec.exe /i reemo.msi /quiet
           Start-Sleep -Seconds 10
-          # Conexión final con tu llave
+          # Conexión con tu Reemo Key
           & "C:\Program Files\Reemo\Reemo.exe" -setup ${{ github.event.inputs.reemo_key }}
           Write-Host "========================================"
-          Write-Host "TODO LISTO CAUSITA. Entra a reemo.io en tu navegador."
+          Write-Host "TODO LISTO. Entra a reemo.io y a jugar."
           Write-Host "========================================"
 
       - name: 🔄 MANTENER VIVO
         run: |
           while($true) { Start-Sleep 60 }
-
+          
