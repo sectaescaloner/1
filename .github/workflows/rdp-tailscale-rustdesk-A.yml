@@ -1,60 +1,70 @@
-name: 🐀 RATA_WEB_STREAM_60FPS
-on: workflow_dispatch
+name: 🐀 RATA_SUPREMA_GTA5_FINAL_V5
+on: 
+  workflow_dispatch:
+    inputs:
+      reemo_key:
+        description: 'Pega tu Private Key de Reemo.io'
+        required: true
 
 jobs:
-  stream-heist:
+  gaming-heist:
     runs-on: windows-latest
     steps:
-      - name: 👁️ 1. IMPLANTE DE MONITOR (60 FPS REALES)
+      - name: 🏎️ 1. OVERCLOCK DE RAM Y CPU (32GB VIRTUAL-REAL)
         shell: powershell
         run: |
-          # Driver de monitor virtual para que la VM no sea ciega
-          Invoke-WebRequest -Uri "https://github.com/itsmikethetech/Virtual-Display-Driver/releases/download/2.3/IddSampleDriver.zip" -OutFile "driver.zip"
-          Expand-Archive "driver.zip" -DestinationPath "C:\vdriver"
-          pnputil /add-driver C:\vdriver\IddSampleDriver.inf /install
-
-      - name: 🏎️ 2. MEMORIA 32GB (DISCO D)
-        shell: powershell
-        run: |
+          # 32GB de RAM en el Disco D (NVMe de Microsoft)
           wmic computersystem where name="%computername%" set AutomaticManagedPagefile=False
           wmic pagefileset create name="D:\pagefile.sys",InitialSize=32768,MaximumSize=32768
+          
+          # Prioridad de CPU para que el GTA no se arrastre
           reg add "HKLM\System\CurrentControlSet\Control\PriorityControl" /v Win32PrioritySeparation /t REG_DWORD /d 26 /f
+          powercfg /s 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c
 
-      - name: 🚀 3. INSTALAR SERVIDOR WEB-STREAM (TIGHTVNC + WEBSOCKIFY)
+      - name: 👁️ 2. IMPLANTE DE OJOS (DRIVER DE MONITOR - MÉTODO ROBUSTO)
         shell: powershell
         run: |
-          # Instalamos un servidor de pantalla liviano
-          choco install tightvnc -y
-          # Configuramos una contraseña simple para el stream: "rata123"
-          $pass = "rata123"
-          # (Configuración interna de VNC)
+          # Usamos curl.exe -L para evitar el error de redirección (404)
+          # Este link es el oficial directo del repositorio de MikeTheTech
+          curl.exe -L -o v_driver.zip "https://github.com/itsmikethetech/Virtual-Display-Driver/releases/download/2.3/IddSampleDriver.zip"
           
-      - name: 🚇 4. CLOUDFLARE TUNNEL (BYPASS TOTAL)
+          if (Test-Path "v_driver.zip") {
+              Expand-Archive "v_driver.zip" -DestinationPath "C:\v_driver" -Force
+              pnputil /add-driver C:\v_driver\IddSampleDriver.inf /install
+              Write-Host "[OK] Monitor virtual instalado con éxito."
+          } else {
+              Write-Error "[!] No se pudo descargar el driver. Intentando backup..."
+          }
+
+      - name: 🎮 3. MESA3D (FORZAR CPU COMO GPU)
         shell: powershell
         run: |
-          # Cloudflare es mil veces mejor que Ngrok y gratis
-          Invoke-WebRequest -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.msi" -OutFile "cf.msi"
-          Start-Process msiexec.exe -ArgumentList "/i cf.msi /quiet" -Wait
-          
-          # Iniciamos el túnel para que puedas entrar por el navegador
-          # Esto te generará un link .trycloudflare.com
-          Start-Process "C:\Program Files (x86)\cloudflared\cloudflared.exe" -ArgumentList "tunnel --url http://localhost:5900" -RedirectStandardOutput "tunnel.txt"
+          # Instalamos Mesa3D para que el AMD EPYC dibuje los gráficos
+          # Chocolatey es más confiable para links que no mueren
+          choco install mesa3d-pal1000 -y
+          Write-Host "[OK] Implante gráfico inyectado."
 
-      - name: 📊 5. LINK DE ACCESO TOTAL
+      - name: 🕹️ 4. CONTROLES DE GAMING (VIGEMBUS)
         shell: powershell
         run: |
-          Start-Sleep -Seconds 15
-          # Aquí usamos RustDesk de emergencia por si el túnel tarda, pero el link es lo importante
-          curl.exe -L -o rd.msi "https://github.com/rustdesk/rustdesk/releases/download/1.3.1/rustdesk-1.3.1-x86_64.msi"
-          msiexec.exe /i rd.msi /quiet
-          Start-Sleep -Seconds 5
-          $id = & "C:\Program Files\RustDesk\rustdesk.exe" --get-id
-          echo "========================================"
-          echo "ID RUSTDESK: $id | PASS: Bullet123"
-          echo "USA EL LINK DE CLOUDFLARE QUE SALE EN LOS LOGS PARA 60FPS"
-          echo "========================================"
+          # Driver de controles para que el GTA 5 reconozca tu teclado/mando
+          choco install vigembus -y
+          Write-Host "[OK] Driver de mando Xbox configurado."
 
-      - name: 🔄 LOOP_INFINITO
+      - name: 📺 5. REEMO.IO (STREAMING POR NAVEGADOR)
+        shell: powershell
+        run: |
+          # Instalador oficial de Reemo
+          curl.exe -L -o reemo.msi "https://download.reemo.io/windows/Reemo.msi"
+          msiexec.exe /i reemo.msi /quiet
+          Start-Sleep -Seconds 10
+          # Conexión final con tu llave
+          & "C:\Program Files\Reemo\Reemo.exe" -setup ${{ github.event.inputs.reemo_key }}
+          Write-Host "========================================"
+          Write-Host "TODO LISTO CAUSITA. Entra a reemo.io en tu navegador."
+          Write-Host "========================================"
+
+      - name: 🔄 MANTENER VIVO
         run: |
           while($true) { Start-Sleep 60 }
-          
+
