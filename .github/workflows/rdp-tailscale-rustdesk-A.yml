@@ -1,4 +1,4 @@
-name: 🐀 RATA_SUNSHINE_TAILSCALE
+name: 🐀 RATA_SUNSHINE_TAILSCALE_V8
 on: 
   workflow_dispatch:
     inputs:
@@ -10,45 +10,51 @@ jobs:
   gaming-heist:
     runs-on: windows-latest
     steps:
-      - name: 🏎️ 1. RAM 32GB (REGISTRO)
+      - name: 🏎️ 1. RAM 32GB (MÉTODO REGISTRO)
         shell: powershell
         run: |
           reg add "HKLM\System\CurrentControlSet\Control\Session Manager\Memory Management" /v PagingFiles /t REG_MULTI_SZ /d "D:\pagefile.sys 32768 32768" /f
+          Write-Host "[OK] RAM preparada."
 
-      - name: 👁️ 2. MONITOR VIRTUAL (TU LINK GANADOR)
+      - name: 👁️ 2. INSTALAR MONITOR VIRTUAL (LINK DIRECTO)
         shell: powershell
         run: |
           $url = "https://github.com/VirtualDrivers/Virtual-Display-Driver/releases/download/25.5.2/Virtual.Display.Driver-v25.05.03-setup-x64.exe"
-          curl -L -o setup_monitor.exe $url
-          Start-Process -FilePath ".\setup_monitor.exe" -ArgumentList "/S" -Wait
+          # Usamos curl.exe con la ruta completa para que Windows no use el alias falso
+          & curl.exe -L -o setup_monitor.exe $url
+          if (Test-Path "setup_monitor.exe") {
+              Start-Process -FilePath ".\setup_monitor.exe" -ArgumentList "/S" -Wait
+              Write-Host "[OK] Monitor instalado."
+          } else {
+              Write-Error "Fallo la descarga del driver."
+          }
 
-      - name: 🚇 3. TAILSCALE (EL TUNEL DEFINITIVO)
+      - name: 🚇 3. TAILSCALE (SALTO DE FIREWALL)
         shell: powershell
         run: |
-          # Instalamos Tailscale para saltar el Firewall de Microsoft
           choco install tailscale -y
-          # Nos conectamos a tu red privada
+          # Conectamos con tu Key para que la VM aparezca en tu celular
+          & "C:\Windows\System32\config\systemprofile\AppData\Local\Microsoft\WindowsApps\tailscale.exe" up --authkey ${{ github.event.inputs.tailscale_key }}
+          # Si el comando anterior falla por ruta, probamos el estandar:
           & "C:\Program Files\Tailscale\tailscale.exe" up --authkey ${{ github.event.inputs.tailscale_key }}
 
-      - name: ☀️ 4. SUNSHINE (EL REY)
+      - name: ☀️ 4. SUNSHINE & GAMING TOOLS
         shell: powershell
         run: |
-          choco install sunshine -y
-          # Inyectamos Mesa3D para que el AMD EPYC actúe como GPU
-          choco install mesa3d-pal1000 vigembus -y
+          choco install sunshine mesa3d-pal1000 vigembus -y
+          Write-Host "[OK] Sunshine, GPU Software y Controles listos."
 
-      - name: 📊 5. DATOS DE CONEXIÓN
+      - name: 📊 5. DATOS FINALES
         shell: powershell
         run: |
           $ip = & "C:\Program Files\Tailscale\tailscale.exe" ip -4
           Write-Host "========================================"
-          Write-Host "IP PRIVADA TAILSCALE: $ip"
-          Write-Host "1. Abre Moonlight en tu cel (conectado a Tailscale)."
-          Write-Host "2. Agrega la IP: $ip"
-          Write-Host "3. Si necesitas configurar Sunshine: https://$($ip):47990"
+          Write-Host "LA VM ESTÁ VIVA"
+          Write-Host "IP PARA MOONLIGHT: $ip"
+          Write-Host "URL PANEL SUNSHINE: https://$($ip):47990"
           Write-Host "========================================"
 
-      - name: 🔄 MANTENER VIVO
+      - name: 🔄 LOOP INFINITO
         run: |
           while($true) { Start-Sleep 60 }
           
