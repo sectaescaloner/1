@@ -1,54 +1,65 @@
-name: 🐀 RATA_PERFECT_LOOK_W11
+name: 🐀 RATA_W11_REAL_WIDGETS
 on: workflow_dispatch
 
 jobs:
   gaming-heist:
     runs-on: windows-latest
     steps:
-      - name: 🚀 1. SPOOF RTX 5090
+      - name: 🚀 1. SPOOF & WALLPAPER (LOOK W11)
         shell: powershell
         run: |
+          # GPU Fake
           $videoClass = "HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}"
           Get-ChildItem -Path $videoClass -ErrorAction SilentlyContinue | ForEach-Object {
               Set-ItemProperty -Path $_.PSPath -Name "DriverDesc" -Value "NVIDIA GeForce RTX 5090" -Force
           }
+          # Wallpaper Bloom
+          $wpUrl = "https://raw.githubusercontent.com/RashidSidd/Windows-11-Wallpapers/main/img0.jpg"
+          & curl.exe -L -o C:\Windows\wp.jpg $wpUrl
+          Set-ItemProperty -Path 'HKCU:\Control Panel\Desktop' -Name wallpaper -Value "C:\Windows\wp.jpg"
+          rundll32.exe user32.dll,UpdatePerUserSystemParameters
 
-      - name: 🎨 2. ALINEACIÓN CENTRO (W11 STYLE)
+      - name: 🎨 2. TASKBAR: CENTRO + ESPACIO WIDGET
         shell: powershell
         run: |
           $adv = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
-          # TaskbarAl = 1 es CENTRO. TaskbarAl = 0 es IZQUIERDA.
-          Set-ItemProperty -Path $adv -Name "TaskbarAl" -Value 1 -Force 
-          Set-ItemProperty -Path $adv -Name "TaskbarDa" -Value 1 -Force # Espacio para Widgets
+          Set-ItemProperty -Path $adv -Name "TaskbarAl" -Value 1 -Force # Centro
+          Set-ItemProperty -Path $adv -Name "TaskbarDa" -Value 1 -Force # Activa el botón de Widgets (el cuadrado)
           
-          # Modo Oscuro Total
-          $theme = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
-          Set-ItemProperty -Path $theme -Name "AppsUseLightTheme" -Value 0 -Force
-          Set-ItemProperty -Path $theme -Name "SystemUsesLightTheme" -Value 0 -Force
+          # Habilitar "News and Interests" en modo completo
+          $feeds = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Feeds"
+          if (!(Test-Path $feeds)) { New-Item -Path $feeds -Force }
+          Set-ItemProperty -Path $feeds -Name "ShellFeedsTaskbarViewMode" -Value 0 -Force 
 
-      - name: 🌦️ 3. INYECTAR WIDGET CLIMA (VERSION RATA)
+      - name: 🛠️ 3. INYECCIÓN MANUAL DE WEB EXPERIENCE (EL CLIMA)
         shell: powershell
         run: |
-          # Como el de MS no abre en Server, instalamos uno que se ve igual
-          choco install rainmeter -y
-          # Descargamos una skin que imita el widget de Windows 11
-          # (Este paso es manual dentro de la VM usualmente, pero intentaremos activar el motor)
-          Write-Host "[OK] Motor de widgets instalado."
+          Write-Host "[*] Descargando motor WebView2..."
+          & curl.exe -L -o webview2.exe https://go.microsoft.com/fwlink/p/?LinkId=2124703
+          Start-Process -FilePath ".\webview2.exe" -ArgumentList "/silent /install" -Wait
 
-      - name: 🔑 4. RUSTDESK (FIXED ID)
+          # Intentamos registrar el paquete de Dashboards que viene oculto en el sistema
+          # Esto es lo que "pega" el clima a la izquierda
+          $manifest = "C:\Windows\SystemApps\Microsoft.Windows.ContextStore_cw5n1h2txyewy\AppxManifest.xml"
+          if (Test-Path $manifest) {
+              Add-AppxPackage -DisableDevelopmentMode -Register $manifest -ErrorAction SilentlyContinue
+          }
+          
+          Write-Host "[OK] Intento de inyección de clima terminado."
+
+      - name: 🔑 4. RUSTDESK (CON ID)
         shell: powershell
         run: |
           & curl.exe -L -o rd.msi "https://github.com/rustdesk/rustdesk/releases/download/1.3.1/rustdesk-1.3.1-x86_64.msi"
           Start-Process msiexec.exe -ArgumentList "/i rd.msi /quiet /norestart" -Wait
-          Start-Sleep -Seconds 10
-          # Forzamos a que RustDesk despierte para que de el ID
+          Start-Sleep -Seconds 15
           & "C:\Program Files\RustDesk\rustdesk.exe" --password Bullet123
           $id = & "C:\Program Files\RustDesk\rustdesk.exe" --get-id
           Write-Host "========================================"
-          Write-Host "TU ID ES: $id"
+          Write-Host "ID RUSTDESK: $id | PASS: Bullet123"
           Write-Host "========================================"
 
-      - name: 📸 5. EVIDENCIA FINAL
+      - name: 📸 5. EVIDENCIA CATBOX
         shell: powershell
         run: |
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
@@ -57,8 +68,8 @@ jobs:
           $bitmap = New-Object System.Drawing.Bitmap($screen.Width, $screen.Height)
           $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
           $graphics.CopyFromScreen(0, 0, 0, 0, $bitmap.Size)
-          $bitmap.Save("C:\Users\Public\desktop2.png")
-          $link = & curl.exe -F "reqtype=fileupload" -F "fileToUpload=@C:\Users\Public\desktop2.png" https://catbox.moe/user/api.php
+          $bitmap.Save("C:\Users\Public\w11_test.png")
+          $link = & curl.exe -F "reqtype=fileupload" -F "fileToUpload=@C:\Users\Public\w11_test.png" https://catbox.moe/user/api.php
           Write-Host "LINK: $link"
 
       - name: 🔄 LOOP
