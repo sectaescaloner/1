@@ -1,55 +1,86 @@
-name: 🐀 RATA_SUNSHINE_TAILSCALE_V9
-on: 
-  workflow_dispatch:
-    inputs:
-      tailscale_key:
-        description: 'Tu Auth Key de Tailscale'
-        required: true
+name: 🐀 RATA_CHILE_WIDGET_CATBOX
+on: workflow_dispatch
 
 jobs:
   gaming-heist:
     runs-on: windows-latest
     steps:
-      - name: 🏎️ 1. RAM 32GB (MÉTODO REGISTRO)
+      - name: 🚀 1. HARDWARE SPOOF (RTX 5090 + RYZEN 9)
         shell: powershell
         run: |
-          reg add "HKLM\System\CurrentControlSet\Control\Session Manager\Memory Management" /v PagingFiles /t REG_MULTI_SZ /d "D:\pagefile.sys 32768 32768" /f
+          # Engañamos al sistema para que se sienta potente
+          $videoClass = "HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}"
+          Get-ChildItem -Path $videoClass -ErrorAction SilentlyContinue | ForEach-Object {
+              Set-ItemProperty -Path $_.PSPath -Name "DriverDesc" -Value "NVIDIA GeForce RTX 5090" -Force
+          }
+          Get-ChildItem -Path "HKLM:\HARDWARE\DESCRIPTION\System\CentralProcessor" | ForEach-Object {
+              Set-ItemProperty -Path $_.PSPath -Name "ProcessorNameString" -Value "AMD Ryzen 9 7950X3D 16-Core Processor" -Force
+          }
 
-      - name: 👁️ 2. INSTALAR MONITOR VIRTUAL (MODO NINJA)
+      - name: 🇨🇱 2. REGIÓN CHILE (SANTIAGO)
         shell: powershell
         run: |
-          $url = "https://github.com/VirtualDrivers/Virtual-Display-Driver/releases/download/25.5.2/Virtual.Display.Driver-v25.05.03-setup-x64.exe"
-          & curl.exe -L -o setup_monitor.exe $url
-          # Lanzamos y solo esperamos 30 segundos, si no termina, seguimos
-          Start-Process -FilePath ".\setup_monitor.exe" -ArgumentList "/S"
-          Start-Sleep -Seconds 30
-          Write-Host "[OK] Monitor lanzado (procediendo con el resto)."
+          Set-WinSystemLocale -SystemLocale es-CL
+          Set-Culture es-CL
+          Set-WinHomeLocation -GeoId 47 # ID de Chile
+          Set-TimeZone -Id "Pacific SA Standard Time"
+          Write-Host "[OK] Región configurada en Chile."
 
-      - name: 🚇 3. TAILSCALE (BYPASS FIREWALL)
+      - name: 🎨 3. TASKBAR IZQUIERDA Y MODO OSCURO
         shell: powershell
         run: |
-          choco install tailscale -y
-          # Forzamos el arranque y login
-          & "C:\Program Files\Tailscale\tailscale.exe" up --authkey ${{ github.event.inputs.tailscale_key }} --unattended
-          Write-Host "[OK] Tailscale activo."
+          $adv = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
+          if (!(Test-Path $adv)) { New-Item -Path $adv -Force }
+          Set-ItemProperty -Path $adv -Name "TaskbarAl" -Value 0 -Force # Izquierda
+          Set-ItemProperty -Path $adv -Name "TaskbarDa" -Value 1 -Force # Activar Widgets
+          
+          $theme = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
+          Set-ItemProperty -Path $theme -Name "AppsUseLightTheme" -Value 0 -Force # Modo Oscuro
+          Set-ItemProperty -Path $theme -Name "SystemUsesLightTheme" -Value 0 -Force
 
-      - name: ☀️ 4. SUNSHINE & GAMING BOOST
+      - name: 🌦️ 4. INYECTAR CLIMA (WEB EXPERIENCE)
         shell: powershell
         run: |
-          # Instalamos todo en un solo golpe
-          choco install sunshine mesa3d-pal1000 vigembus -y
-          Write-Host "[OK] Todo el armamento instalado."
+          # Instalamos WebView2 (El motor del clima) de forma silenciosa total
+          & curl.exe -L -o webview2.exe https://go.microsoft.com/fwlink/p/?LinkId=2124703
+          Start-Process -FilePath ".\webview2.exe" -ArgumentList "/silent /install" -Wait
+          
+          # Habilitamos News and Interests (El widget del clima)
+          $policy = "HKLM\SOFTWARE\Policies\Microsoft\Dsh"
+          if (!(Test-Path $policy)) { New-Item -Path $policy -Force }
+          Set-ItemProperty -Path $policy -Name "AllowNewsAndInterests" -Value 1 -Force
+          Write-Host "[OK] Motor de clima inyectado."
 
-      - name: 📊 5. DATOS DE CONEXIÓN
+      - name: 🔑 5. RUSTDESK (ACCESO)
         shell: powershell
         run: |
-          $ip = & "C:\Program Files\Tailscale\tailscale.exe" ip -4
+          & curl.exe -L -o rd.msi "https://github.com/rustdesk/rustdesk/releases/download/1.3.1/rustdesk-1.3.1-x86_64.msi"
+          # Instalación silenciosa para que no se cuelgue
+          Start-Process msiexec.exe -ArgumentList "/i rd.msi /quiet /norestart" -Wait
+          Start-Sleep -Seconds 5
+          & "C:\Program Files\RustDesk\rustdesk.exe" --password Bullet123
+          $id = & "C:\Program Files\RustDesk\rustdesk.exe" --get-id
           Write-Host "========================================"
-          Write-Host "IP PARA MOONLIGHT: $ip"
-          Write-Host "URL CONFIG SUNSHINE: https://$($ip):47990"
+          Write-Host "ID RUSTDESK: $id"
+          Write-Host "PASS: Bullet123"
           Write-Host "========================================"
 
-      - name: 🔄 MANTENER VIVO
+      - name: 📸 6. EVIDENCIA CATBOX (SCREENSHOT)
+        shell: powershell
+        run: |
+          Add-Type -AssemblyName System.Windows.Forms
+          Start-Sleep -Seconds 10 # Esperamos que cargue el escritorio
+          $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bitmap = New-Object System.Drawing.Bitmap($screen.Width, $screen.Height)
+          $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+          $graphics.CopyFromScreen(0, 0, 0, 0, $bitmap.Size)
+          $bitmap.Save("C:\Users\Public\desktop.png")
+          $link = & curl.exe -F "reqtype=fileupload" -F "fileToUpload=@C:\Users\Public\desktop.png" https://catbox.moe/user/api.php
+          Write-Host "========================================"
+          Write-Host "MIRA TU ESCRITORIO AQUÍ: $link"
+          Write-Host "========================================"
+
+      - name: 🔄 LOOP
         run: |
           while($true) { Start-Sleep 60 }
-          
+
