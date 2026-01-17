@@ -1,21 +1,36 @@
-name: Ryxen-Neural-Army
-on: [workflow_dispatch]
+name: Ryxen Neural Network Deployment
+
+on:
+  workflow_dispatch: # Permite lanzar el ataque manualmente desde el botón "Run workflow"
 
 jobs:
-  launch:
+  deploy-runners:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false # Si un runner falla, los otros 18 siguen vivos
       matrix:
-        # Crea 10 instancias independientes atacando al mismo tiempo
-        node: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        # Aquí definimos la cantidad de runners (del 1 al 19)
+        runner_id: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+
     steps:
-      - uses: actions/checkout@v4
-      - name: Setup Python
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-      - name: Install Requests
-        run: pip install aiohttp requests
-      - name: Run Neural Node
-        run: python agente.py
 
+      - name: Install High-Performance Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install aiohttp requests colorama
+
+      - name: Initialize Ryxen Agent v23
+        run: |
+          # Ejecutamos el agente.py. 
+          # Cada runner se identificará con un ID único basado en la matriz.
+          python agente.py
+        env:
+          RUNNER_NUMBER: ${{ matrix.runner_id }}
+          
