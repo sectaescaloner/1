@@ -1,67 +1,48 @@
-name: 🐀 RATA_SUPREMA_POWERSHELL_V6
-on: 
-  workflow_dispatch:
-    inputs:
-      reemo_key:
-        description: 'Tu Private Key de Reemo.io'
-        required: true
+name: 🐀 RATA_SUNSHINE_PRO_TUNNEL
+on: workflow_dispatch
 
 jobs:
   gaming-heist:
     runs-on: windows-latest
     steps:
-      - name: 🏎️ 1. BOOST DE RAM (32GB EN DISCO D) - MÉTODO MODERNO
+      - name: 🏎️ 1. RAM 32GB (MÉTODO REGISTRO)
         shell: powershell
         run: |
-          Write-Host "[*] Aplicando esteroides a la RAM..." -ForegroundColor Cyan
-          # Desactivamos el manejo automático de RAM (El reemplazo de wmic)
-          $sys = Get-CimInstance Win32_ComputerSystem
-          Set-CimInstance -CimInstance $sys -Property @{AutomaticManagedPagefile = $False}
+          reg add "HKLM\System\CurrentControlSet\Control\Session Manager\Memory Management" /v PagingFiles /t REG_MULTI_SZ /d "D:\pagefile.sys 32768 32768" /f
+          Write-Host "[OK] RAM lista."
+
+      - name: 👁️ 2. INSTALAR MONITOR VIRTUAL (TU LINK GANADOR)
+        shell: powershell
+        run: |
+          $url = "https://github.com/VirtualDrivers/Virtual-Display-Driver/releases/download/25.5.2/Virtual.Display.Driver-v25.05.03-setup-x64.exe"
+          curl -L -o setup_monitor.exe $url
+          Start-Process -FilePath ".\setup_monitor.exe" -ArgumentList "/S" -Wait
+          Write-Host "[OK] Ojos instalados."
+
+      - name: ☀️ 3. SUNSHINE (EL REY)
+        shell: powershell
+        run: |
+          choco install sunshine -y
+          Write-Host "[OK] Sunshine instalado."
+
+      - name: 🚇 4. CLOUDFLARE TUNNEL (EL SALTA-FIREWALLS)
+        shell: powershell
+        run: |
+          # Descargamos el túnel para saltar el firewall de Microsoft
+          curl -L -o cloudflared.msi https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.msi
+          msiexec.exe /i cloudflared.msi /quiet
           
-          # Creamos el archivo de 32GB en el Disco D: (NVMe rápido)
-          New-CimInstance -ClassName Win32_PageFileSetting -Property @{Name="D:\pagefile.sys"; InitialSize=32768; MaximumSize=32768}
-          
-          # Prioridad de CPU y Energía
-          reg add "HKLM\System\CurrentControlSet\Control\PriorityControl" /v Win32PrioritySeparation /t REG_DWORD /d 26 /f
-          powercfg /s 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c
-          Write-Host "[OK] RAM de 32GB configurada en D:"
+          Write-Host "--- ESPERANDO AL LINK DEL TÚNEL ---"
+          # Creamos el túnel para el panel de Sunshine (Puerto 47990)
+          Start-Process "C:\Program Files (x86)\cloudflared\cloudflared.exe" -ArgumentList "tunnel --url http://localhost:47990" -RedirectStandardOutput "tunnel_log.txt"
+          Start-Sleep -Seconds 15
+          Get-Content "tunnel_log.txt" | Select-String "trycloudflare.com"
 
-      - name: 👁️ 2. IMPLANTE DE OJOS (DRIVER DE MONITOR - ANTI-404)
+      - name: 🎮 5. BOOSTER: MESA3D Y CONTROLES
         shell: powershell
         run: |
-          Write-Host "[*] Instalando ojos a la VM..."
-          # Usamos un link directo que apunta al último release estable
-          $url = "https://github.com/itsmikethetech/Virtual-Display-Driver/releases/latest/download/IddSampleDriver.zip"
-          curl.exe -L -o v_driver.zip $url
-          
-          Expand-Archive "v_driver.zip" -DestinationPath "C:\v_driver" -Force
-          pnputil /add-driver C:\v_driver\IddSampleDriver.inf /install
-          Write-Host "[OK] Monitor virtual de 60Hz activo."
-
-      - name: 🎮 3. MESA3D (FORZAR CPU COMO GPU)
-        shell: powershell
-        run: |
-          # Chocolatey es la vieja confiable para no lidiar con links rotos
-          choco install mesa3d-pal1000 -y
-          Write-Host "[OK] Motor gráfico inyectado."
-
-      - name: 🕹️ 4. CONTROLES DE GAMING (VIGEMBUS)
-        shell: powershell
-        run: |
-          choco install vigembus -y
-          Write-Host "[OK] Driver de mando Xbox configurado."
-
-      - name: 📺 5. REEMO.IO (STREAMING PARA RATAS PRO)
-        shell: powershell
-        run: |
-          curl.exe -L -o reemo.msi "https://download.reemo.io/windows/Reemo.msi"
-          msiexec.exe /i reemo.msi /quiet
-          Start-Sleep -Seconds 10
-          # Conexión con tu Reemo Key
-          & "C:\Program Files\Reemo\Reemo.exe" -setup ${{ github.event.inputs.reemo_key }}
-          Write-Host "========================================"
-          Write-Host "TODO LISTO. Entra a reemo.io y a jugar."
-          Write-Host "========================================"
+          choco install mesa3d-pal1000 vigembus -y
+          Write-Host "[OK] Configuración gaming lista."
 
       - name: 🔄 MANTENER VIVO
         run: |
