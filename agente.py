@@ -70,7 +70,7 @@ def run_l7_process(target, end_time):
     asyncio.set_event_loop(loop)
     # Semáforo de alta concurrencia (320 hilos lógicos)
     sem = asyncio.Semaphore(25000)
-    tasks = [l7_extreme_engine(target, end_time, sem) for _ in range(320)]
+    tasks = [l7_extreme_engine(target, end_time, sem) for _ in range(420)]
     loop.run_until_complete(asyncio.gather(*tasks))
 
 async def main():
@@ -109,7 +109,7 @@ def run_async_process(target, end_time):
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     sem = asyncio.Semaphore(25000)
-    tasks = [l7_extreme_engine(target, end_time, sem) for _ in range(320)]
+    tasks = [l7_extreme_engine(target, end_time, sem) for _ in range(420)]
     loop.run_until_complete(asyncio.gather(*tasks))
 
 if __name__ == "__main__":
