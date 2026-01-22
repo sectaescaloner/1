@@ -1,51 +1,61 @@
-name: Hydra-Runner-2026
+name: Hydra-Infinite-Cycle
 on:
   workflow_dispatch:
     inputs:
       token:
-        description: 'Token de Discord'
+        description: 'Token de tu cuenta (Selfbot)'
         required: true
       comando:
-        description: 'Comando (ej: !activar)'
+        description: 'Comando de activacion (ej: !pe)'
         required: true
-        default: '!start'
+        default: '!pe'
       mensaje:
-        description: 'Mensaje'
+        description: 'Mensaje a repetir'
         required: true
-        default: 'Hydra Online'
+        default: 'Hydra System Online'
 
 jobs:
-  build:
+  execute:
     runs-on: windows-latest
     steps:
-    - name: Clone Repository
+    - name: Clone Repo
       uses: actions/checkout@v4
 
-    - name: Setup Environment
+    - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '20'
 
-    - name: Install Dependencies
+    - name: Install All Dependencies
       run: |
-        npm install discord.js-selfbot-v13
-        pip install requests aiohttp aiohappyeyeballs
+        npm install discord.js-selfbot-v13 debug timers
+        pip install requests aiohttp
 
-    - name: Execution
+    - name: Run Scripts & Auto-Replication
       shell: bash
       env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         D_TOKEN: ${{ github.event.inputs.token }}
         D_CMD: ${{ github.event.inputs.comando }}
         D_MSG: ${{ github.event.inputs.mensaje }}
       run: |
-        # Verificamos donde estamos y que archivos hay (para debug)
-        ls -R
+        # Lanzar el bot de Discord
+        node ./index.js "$D_TOKEN" "$D_CMD" "$D_MSG" &
         
-        # Ejecutamos usando la ruta completa del workspace
-        # Cambiamos bot.js por index.js
-        node "$GITHUB_WORKSPACE/index.js" "$D_TOKEN" "$D_CMD" "$D_MSG" &
-        python "$GITHUB_WORKSPACE/agente.py" &
+        # Lanzar el agente de ataque (si lo tienes en el repo)
+        if [ -f "./agente.py" ]; then
+          python ./agente.py &
+        fi
+
+        echo "🚀 Runner en linea. Esperando 5 horas para auto-replicar..."
         
-        echo "Lanzado con exito. Manteniendo vivo..."
-        sleep 21000
+        # Esperar 5 horas (18000 segundos)
+        sleep 18000 
         
+        # Auto-invocación: Crea un nuevo runner antes de que este muera
+        # Asegúrate de que el nombre del archivo sea main.yml
+        gh workflow run main.yml -f token="$D_TOKEN" -f comando="$D_CMD" -f mensaje="$D_MSG"
+        
+        # Mantener este vivo un rato más por si acaso
+        sleep 3600
+
