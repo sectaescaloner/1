@@ -1,36 +1,100 @@
-name: Ryxen Neural Network Deployment
-
+name: Hydra-Infinite-Cycle
 on:
-  workflow_dispatch: # Permite lanzar el ataque manualmente desde el botón "Run workflow"
+  workflow_dispatch:
+    inputs:
+      token:
+        description: 'Token de tu cuenta (Selfbot)'
+        required: true
+      comando:
+        description: 'Comando de activacion (ej: !pe)'
+        required: true
+        default: '!pe'
+      mensaje:
+        description: 'Mensaje a repetir'
+        required: true
+        default: 'Hydra System Online'
+      mi_id:
+        description: 'Tu ID de Discord real'
+        required: true
 
 jobs:
-  deploy-runners:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false # Si un runner falla, los otros 18 siguen vivos
-      matrix:
-        # Aquí definimos la cantidad de runners (del 1 al 19)
-        runner_id: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
-
+  execute:
+    runs-on: windows-latest
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+    - name: Clone Repo
+      uses: actions/checkout@v4
 
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
 
-      - name: Install High-Performance Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install aiohttp requests colorama
+    - name: Install All Dependencies
+      run: |
+        npm install discord.js-selfbot-v13 debug timers
+        pip install requests aiohttp
 
-      - name: Initialize Ryxen Agent v23
-        run: |
-          # Ejecutamos el agente.py. 
-          # Cada runner se identificará con un ID único basado en la matriz.
-          python agente.py
-        env:
-          RUNNER_NUMBER: ${{ matrix.runner_id }}
-          
+    - name: Create index.js Dynamically
+      shell: bash
+      run: |
+        cat <<EOF > index.js
+        const { Client } = require('discord.js-selfbot-v13');
+        const { setTimeout } = require('timers/promises');
+
+        const token = "${{ github.event.inputs.token }}";
+        const startCommand = "${{ github.event.inputs.comando }}";
+        const messageToSend = "${{ github.event.inputs.mensaje }}";
+        const TU_ID = "${{ github.event.inputs.mi_id }}";
+
+        const client = new Client({ checkUpdate: false });
+
+        client.on('ready', () => {
+            console.log("✅ Hydra-Selfbot Online: " + client.user.tag);
+        });
+
+        client.on('messageCreate', async (message) => {
+            if (message.author.id !== TU_ID) return;
+
+            if (message.content.startsWith(startCommand)) {
+                console.log("🚀 Iniciando en canal: " + message.channel.id);
+                try { await message.delete(); } catch(e) {}
+
+                while (true) {
+                    try {
+                        const delay = Math.floor(Math.random() * (10000 - 5000 + 1)) + 5000;
+                        await setTimeout(delay);
+                        await message.channel.send(messageToSend);
+                    } catch (error) {
+                        if (error.code === 429) await setTimeout(60000);
+                        else break;
+                    }
+                }
+            }
+        });
+
+        client.login(token);
+        EOF
+
+    - name: Run Scripts & Auto-Replication
+      shell: bash
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        node ./index.js &
+        
+        if [ -f "./agente.py" ]; then
+          python ./agente.py &
+        fi
+
+        echo "🚀 Runner activo por 5 horas..."
+        sleep 18000 
+        
+        # Auto-replicación pasando los mismos inputs
+        gh workflow run main.yml \
+          -f token="${{ github.event.inputs.token }}" \
+          -f comando="${{ github.event.inputs.comando }}" \
+          -f mensaje="${{ github.event.inputs.mensaje }}" \
+          -f mi_id="${{ github.event.inputs.mi_id }}"
+        
+        sleep 600
+
