@@ -1,57 +1,62 @@
 const { Client } = require('discord.js-selfbot-v13');
 const { setTimeout } = require('timers/promises');
 
-// --- CONFIGURACIÓN DINÁMICA ---
+// Captura de argumentos del YAML
 const token = process.argv[2]; 
 const startCommand = process.argv[3];
 const messageToSend = process.argv[4];
-const amount = 999999; // Infinito hasta que el runner muera
 
-// Delays ajustados para NO quemar la cuenta
-const MIN_DELAY = 4; // 4 segundos minimo
-const MAX_DELAY = 7; // 7 segundos maximo
-const RECOVERY_DELAY = 45; // 45 segundos si hay rate limit
+// --- CONFIGURACION HUMANA ---
+const TU_ID = "1228540602497630310"; // CAMBIA ESTO POR TU ID DE DISCORD
+const MIN_DELAY = 7;  // 5 segundos
+const MAX_DELAY = 10; // 10 segundos
+const COOLDOWN_429 = 100; // 1 minuto si hay Rate Limit
 
-let currentDelay = MAX_DELAY;
 const client = new Client({ checkUpdate: false });
 
-function getRandomDelay(min, max) {
-    return Math.round((Math.random() * (max - min) + min) * 1000);
-}
-
 client.on('ready', () => {
-    console.log(`✅ Hydra-Selfbot Online: ${client.user.tag}`);
-    console.log(`> Esperando comando: ${startCommand}`);
+    console.log(`✅ Conectado como: ${client.user.tag}`);
 });
 
 client.on('messageCreate', async (message) => {
-    if (message.author.id !== client.user.id) return;
+    // Solo responder a tu cuenta
+    if (message.author.id !== TU_ID) return;
+
     if (message.content.startsWith(startCommand)) {
-        const targetChannel = message.channel;
-        console.log(`🚀 Iniciando en: ${targetChannel.name || 'MD'}`);
-        
-        let messageNumber = 0;
-        while (messageNumber < amount) {
+        const channel = message.channel;
+        console.log(`🚀 Activando en: ${channel.id}`);
+
+        // Borrar el comando de activacion para limpiar el rastro
+        try {
+            await message.delete();
+        } catch (e) {
+            console.log("No pude borrar el comando, ignorando...");
+        }
+
+        // Bucle de envío respetuoso
+        while (true) {
             try {
-                await setTimeout(getRandomDelay(MIN_DELAY, currentDelay));
-                await targetChannel.send(messageToSend);
-                messageNumber++;
-                currentDelay = MIN_DELAY;
-                console.log(`[OK] Petición #${messageNumber} enviada.`);
+                // Delay aleatorio para parecer humano
+                const delay = Math.floor(Math.random() * (MAX_DELAY - MIN_DELAY + 1)) + MIN_DELAY;
+                await setTimeout(delay);
+
+                await channel.send(messageToSend);
+                console.log(`[SENT] Mensaje enviado. Proximo en ${delay/1000}s`);
+
             } catch (error) {
                 if (error.code === 429) {
-                    console.error(`⚠️ RATE LIMIT: Esperando ${RECOVERY_DELAY}s...`);
-                    await setTimeout(RECOVERY_DELAY * 1000);
-                    continue;
-                } else if (error.code === 50001) {
-                    console.error(`🚫 Sin permisos en este canal.`);
-                    return;
+                    console.log(`⚠️ Rate limit detectado. Pausando ${COOLDOWN_429/1000}s para ser buenos con Discord.`);
+                    await setTimeout(COOLDOWN_429);
+                } else {
+                    console.error("Error inesperado:", error.message);
+                    await setTimeout(5000);
                 }
-                console.error(`Error: ${error.message}`);
-                await setTimeout(5000);
             }
         }
     }
 });
 
-client.login(token);
+client.login(token).catch(err => {
+    console.error("No se pudo iniciar sesion. Revisa el Token.");
+    process.exit(1);
+});
