@@ -8,9 +8,9 @@ const messageToSend = process.argv[4];
 
 // --- CONFIGURACION HUMANA ---
 const TU_ID = "1228540602497630310"; // CAMBIA ESTO POR TU ID DE DISCORD
-const MIN_DELAY = 7;  // 5 segundos
-const MAX_DELAY = 10; // 10 segundos
-const COOLDOWN_429 = 100; // 1 minuto si hay Rate Limit
+const MIN_DELAY = 5000;  // 5 segundos
+const MAX_DELAY = 10000; // 10 segundos
+const COOLDOWN_429 = 60000; // 1 minuto si hay Rate Limit
 
 const client = new Client({ checkUpdate: false });
 
