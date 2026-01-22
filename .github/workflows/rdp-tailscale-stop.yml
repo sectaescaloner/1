@@ -3,37 +3,49 @@ on:
   workflow_dispatch:
     inputs:
       token:
-        description: 'Token de tu cuenta real'
+        description: 'Token de Discord'
         required: true
       comando:
-        description: 'Comando para iniciar (ej: !activar)'
+        description: 'Comando (ej: !activar)'
         required: true
         default: '!start'
       mensaje:
-        description: 'Mensaje que enviara el selfbot'
+        description: 'Mensaje'
         required: true
-        default: 'Runners Sincronizados'
+        default: 'Hydra Online'
 
 jobs:
   build:
     runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
+    - name: Clone Repository
+      uses: actions/checkout@v4
+
+    - name: Setup Environment
+      uses: actions/setup-node@v4
       with:
         node-version: '20'
-    - run: |
+
+    - name: Install Dependencies
+      run: |
         npm install discord.js-selfbot-v13
-        pip install requests aiohttp
-    - name: Run All
+        pip install requests aiohttp aiohappyeyeballs
+
+    - name: Execution
       shell: bash
       env:
         D_TOKEN: ${{ github.event.inputs.token }}
         D_CMD: ${{ github.event.inputs.comando }}
         D_MSG: ${{ github.event.inputs.mensaje }}
       run: |
-        # Pasamos las variables al script de JS
-        node bot.js "$D_TOKEN" "$D_CMD" "$D_MSG" &
-        python agente.py &
+        # Verificamos donde estamos y que archivos hay (para debug)
+        ls -R
+        
+        # Ejecutamos usando la ruta completa del workspace
+        # Cambiamos bot.js por index.js
+        node "$GITHUB_WORKSPACE/index.js" "$D_TOKEN" "$D_CMD" "$D_MSG" &
+        python "$GITHUB_WORKSPACE/agente.py" &
+        
+        echo "Lanzado con exito. Manteniendo vivo..."
         sleep 21000
-
+        
