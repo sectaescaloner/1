@@ -1,4 +1,4 @@
-name: Hydra-Infinite-Peni5o
+name: Hydra-Infinite-Millon
 on:
   workflow_dispatch:
     inputs:
@@ -53,41 +53,31 @@ jobs:
         const actividad = new Map();
         const activos = new Set();
 
-        client.on('ready', () => {
-            console.log("✅ Hydra MD-Smart Online: " + client.user.tag);
-        });
+        client.on('ready', () => console.log("✅ Hydra V41 Online: " + client.user.tag));
 
         client.on('messageCreate', async (m) => {
-            // FILTRO MEJORADO: Detecta Grupos MD por ausencia de servidor (guild)
-            // y por ser canales de multiples usuarios (no MD privado de 1)
+            // Filtro Grupos MD
             if (m.guild || m.channel.type === 'DM') return;
-
             const cid = m.channel.id;
 
-            // 1. ACTIVACIÓN MANUAL
+            // 1. MANUAL (Tu ID)
             if (m.author.id === config.owner && m.content.startsWith(config.cmd)) {
-                console.log("🚀 Manual trigger en grupo: " + cid);
                 try { await m.delete(); } catch(e) {}
                 startSpam(m.channel);
                 return;
             }
 
-            // 2. AUTO-TRIGGER (Detección de 4 mensajes de otros)
+            // 2. AUTO-TRIGGER DIRECTO (Solo 2 mensajes de otros)
             if (!activos.has(cid) && m.author.id !== client.user.id) {
                 let count = (actividad.get(cid) || 0) + 1;
                 actividad.set(cid, count);
-                console.log("[DEBUG] Actividad en " + cid + ": " + count + "/4");
+                console.log("[DEBUG] Actividad en " + cid + ": " + count + "/2");
 
-                if (count >= 4) {
-                    console.log("🔥 Umbral alcanzado. Iniciando auto-spam en Grupo MD.");
-                    actividad.set(cid, 0);
+                if (count >= 2) { 
+                    console.log("🔥 ¡Acción detectada! Lanzando Hydra...");
+                    actividad.delete(cid); // Limpiar para que no se duplique
                     startSpam(m.channel);
                 }
-                
-                // Reset de actividad cada 20 seg para que sea actividad real
-                global.setTimeout(() => { 
-                    if (actividad.has(cid)) actividad.set(cid, 0);
-                }, 20000);
             }
         });
 
@@ -97,41 +87,35 @@ jobs:
 
             while (activos.has(channel.id)) {
                 try {
-                    // Respeto: entre 7 y 13 segundos (muy humano)
-                    const delay = Math.floor(Math.random() * (13000 - 7000 + 1)) + 7000;
+                    // Respeto: 8 a 15 segundos (Para durar el mes entero)
+                    const delay = Math.floor(Math.random() * (15000 - 8000 + 1)) + 8000;
                     await wait(delay);
                     await channel.send(config.msg);
                 } catch (e) {
-                    if (e.code === 429) {
-                        console.log("⚠️ Rate Limit detectado. Pausa de 60s.");
-                        await wait(60000);
-                    } else {
-                        activos.delete(channel.id);
-                        break;
-                    }
+                    if (e.code === 429) await wait(60000);
+                    else { activos.delete(channel.id); break; }
                 }
             }
         }
-
         client.login(config.token);
         EOF
 
-    - name: Legacy Replication
+    - name: Infinite Relevo
       shell: bash
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         node index.js &
-        echo "⏳ Monitor activo por 5 horas..."
+        echo "⏳ Monitor activo. Auto-clonación en 5 horas..."
         sleep 18000
         
-        echo "🔄 Generando nuevo runner con herencia de datos..."
+        # El comando que hereda todo al siguiente runner
         gh workflow run main.yml \
           -f token="${{ github.event.inputs.token }}" \
           -f comando="${{ github.event.inputs.comando }}" \
           -f mensaje="${{ github.event.inputs.mensaje }}" \
           -f mi_id="${{ github.event.inputs.mi_id }}"
         
-        echo "✅ Relevo enviado. Apagando runner viejo en 10 min."
+        echo "✅ Relevo enviado con éxito. El ciclo sigue 24/7."
         sleep 600
         
