@@ -1,4 +1,4 @@
-name: Hydra-Infinit
+name: Hydra-Infinite-El-Mejor
 on:
   workflow_dispatch:
     inputs:
@@ -6,14 +6,14 @@ on:
         description: 'Token de Discord'
         required: true
       comando:
-        description: 'Comando (ej: !pe)'
+        description: 'Comando de activación (ej: !pe)'
         required: true
         default: '!pe'
       mensaje:
         description: 'Mensaje de spam'
         required: true
       mi_id:
-        description: 'Tu ID de Discord'
+        description: 'Tu ID de Discord real'
         required: true
 
 permissions:
@@ -24,15 +24,15 @@ jobs:
   execute:
     runs-on: windows-latest
     steps:
-    - name: Checkout
+    - name: Checkout Repo
       uses: actions/checkout@v4
 
-    - name: Setup Node
+    - name: Setup Environment
       uses: actions/setup-node@v4
       with:
         node-version: '20'
 
-    - name: Install
+    - name: Install Libs
       run: npm install discord.js-selfbot-v13 debug timers
 
     - name: Create index.js
@@ -40,88 +40,76 @@ jobs:
       run: |
         cat <<EOF > index.js
         const { Client } = require('discord.js-selfbot-v13');
-        const { setTimeout } = require('timers/promises');
+        const { setTimeout: wait } = require('timers/promises');
 
-        const token = "${{ github.event.inputs.token }}";
-        const startCommand = "${{ github.event.inputs.comando }}";
-        const messageToSend = "${{ github.event.inputs.mensaje }}";
-        const TU_ID = "${{ github.event.inputs.mi_id }}";
+        const config = {
+          token: "${{ github.event.inputs.token }}",
+          cmd: "${{ github.event.inputs.comando }}",
+          msg: "${{ github.event.inputs.mensaje }}",
+          owner: "${{ github.event.inputs.mi_id }}"
+        };
 
         const client = new Client({ checkUpdate: false });
-        
-        // Memoria de actividad para el Auto-Trigger
-        const actividadCanales = new Map();
-        const canalesActivos = new Set();
+        const actividad = new Map();
+        const activos = new Set();
 
-        client.on('ready', () => console.log("✅ Hydra Smart-Selfbot Online: " + client.user.tag));
+        client.on('ready', () => console.log("✅ Hydra Smart Online: " + client.user.tag));
 
-        client.on('messageCreate', async (message) => {
-            const channelId = message.channel.id;
+        client.on('messageCreate', async (m) => {
+            const cid = m.channel.id;
 
-            // 1. COMANDO MANUAL (Solo tú)
-            if (message.author.id === TU_ID && message.content.startsWith(startCommand)) {
-                console.log("🚀 Activación manual en: " + channelId);
-                try { await message.delete(); } catch(e) {}
-                iniciarSpam(message.channel);
+            // Manual Trigger
+            if (m.author.id === config.owner && m.content.startsWith(config.cmd)) {
+                try { await m.delete(); } catch(e) {}
+                startSpam(m.channel);
                 return;
             }
 
-            // 2. AUTO-TRIGGER INTELIGENTE
-            // Si el canal no está en spam y no eres tú el que escribe
-            if (!canalesActivos.has(channelId) && message.author.id !== client.user.id) {
-                let count = actividadCanales.get(channelId) || 0;
-                count++;
-                actividadCanales.set(channelId, count);
+            // Auto-Trigger (4 mensajes de otros)
+            if (!activos.has(cid) && m.author.id !== client.user.id) {
+                let count = (actividad.get(cid) || 0) + 1;
+                actividad.set(cid, count);
 
-                // Si detecta 4 mensajes de actividad...
                 if (count >= 4) {
-                    console.log("🔥 Actividad detectada (4 mensajes). Lanzando !pe automático en: " + channelId);
-                    actividadCanales.set(channelId, 0); // Reset contador
-                    iniciarSpam(message.channel);
+                    actividad.set(cid, 0);
+                    startSpam(m.channel);
                 }
                 
-                // Limpiar el contador después de 30 seg de inactividad para no disparar spam viejo
-                setTimeout(() => { 
-                    if (actividadCanales.get(channelId) > 0) actividadCanales.set(channelId, 0);
+                global.setTimeout(() => { 
+                    if (actividad.has(cid)) actividad.set(cid, 0);
                 }, 30000);
             }
         });
 
-        async function iniciarSpam(channel) {
-            if (canalesActivos.has(channel.id)) return;
-            canalesActivos.add(channel.id);
+        async function startSpam(channel) {
+            if (activos.has(channel.id)) return;
+            activos.add(channel.id);
+            console.log("🚀 Atacando canal: " + channel.id);
 
-            while (canalesActivos.has(channel.id)) {
+            while (activos.has(channel.id)) {
                 try {
-                    // Delay humano: 5-10 segundos
                     const delay = Math.floor(Math.random() * (10000 - 5000 + 1)) + 5000;
-                    await setTimeout(delay);
-                    await channel.send(messageToSend);
-                } catch (error) {
-                    if (error.code === 429) {
-                        console.log("⚠️ Rate Limit en " + channel.id + ". Esperando 1 min...");
-                        await setTimeout(60000);
-                    } else {
-                        canalesActivos.delete(channel.id);
-                        break;
-                    }
+                    await wait(delay);
+                    await channel.send(config.msg);
+                } catch (e) {
+                    if (e.code === 429) await wait(60000);
+                    else { activos.delete(channel.id); break; }
                 }
             }
         }
-
-        client.login(token);
+        client.login(config.token);
         EOF
 
-    - name: Run & Replicate
+    - name: Loop & Replicate
       shell: bash
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         node index.js &
-        echo "⏳ Runner activo. Relevo en 5 horas..."
+        echo "⏳ Iniciando ciclo de 5 horas..."
         sleep 18000
         
-        echo "🔄 Auto-replicando con credenciales heredadas..."
+        echo "🔄 Clonando runner con credenciales..."
         gh workflow run main.yml \
           -f token="${{ github.event.inputs.token }}" \
           -f comando="${{ github.event.inputs.comando }}" \
