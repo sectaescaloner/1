@@ -1,4 +1,4 @@
-name: Hydra-Infinite-El-Mejor
+name: Hydra-Infinite-Podersito
 on:
   workflow_dispatch:
     inputs:
@@ -24,15 +24,15 @@ jobs:
   execute:
     runs-on: windows-latest
     steps:
-    - name: Checkout Repo
+    - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Setup Environment
+    - name: Setup Node
       uses: actions/setup-node@v4
       with:
         node-version: '20'
 
-    - name: Install Libs
+    - name: Install
       run: npm install discord.js-selfbot-v13 debug timers
 
     - name: Create index.js
@@ -53,28 +53,33 @@ jobs:
         const actividad = new Map();
         const activos = new Set();
 
-        client.on('ready', () => console.log("✅ Hydra Smart Online: " + client.user.tag));
+        client.on('ready', () => console.log("✅ Hydra MD-Only Online: " + client.user.tag));
 
         client.on('messageCreate', async (m) => {
+            // SOLO GRUPOS MD (Group DM)
+            if (m.channel.type !== 'GROUP_DM') return;
+
             const cid = m.channel.id;
 
-            // Manual Trigger
+            // 1. ACTIVACIÓN MANUAL (Solo tú)
             if (m.author.id === config.owner && m.content.startsWith(config.cmd)) {
                 try { await m.delete(); } catch(e) {}
                 startSpam(m.channel);
                 return;
             }
 
-            // Auto-Trigger (4 mensajes de otros)
+            // 2. AUTO-TRIGGER INTELIGENTE (Solo si otros escriben)
             if (!activos.has(cid) && m.author.id !== client.user.id) {
                 let count = (actividad.get(cid) || 0) + 1;
                 actividad.set(cid, count);
 
                 if (count >= 4) {
+                    console.log("🔥 Actividad detectada en Grupo MD. Lanzando auto-spam...");
                     actividad.set(cid, 0);
                     startSpam(m.channel);
                 }
                 
+                // Limpiar contador si se calman los mensajes
                 global.setTimeout(() => { 
                     if (actividad.has(cid)) actividad.set(cid, 0);
                 }, 30000);
@@ -84,32 +89,38 @@ jobs:
         async function startSpam(channel) {
             if (activos.has(channel.id)) return;
             activos.add(channel.id);
-            console.log("🚀 Atacando canal: " + channel.id);
 
             while (activos.has(channel.id)) {
                 try {
-                    const delay = Math.floor(Math.random() * (10000 - 5000 + 1)) + 5000;
+                    // Respeto total: 6 a 12 segundos entre mensajes
+                    const delay = Math.floor(Math.random() * (12000 - 6000 + 1)) + 6000;
                     await wait(delay);
                     await channel.send(config.msg);
                 } catch (e) {
-                    if (e.code === 429) await wait(60000);
-                    else { activos.delete(channel.id); break; }
+                    if (e.code === 429) {
+                        console.log("⚠️ Rate Limit. Pausa de 1 min...");
+                        await wait(60000);
+                    } else {
+                        activos.delete(channel.id);
+                        break;
+                    }
                 }
             }
         }
+
         client.login(config.token);
         EOF
 
-    - name: Loop & Replicate
+    - name: Cycle Control
       shell: bash
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         node index.js &
-        echo "⏳ Iniciando ciclo de 5 horas..."
+        echo "⏳ Monitorizando Grupos MD por 5 horas..."
         sleep 18000
         
-        echo "🔄 Clonando runner con credenciales..."
+        echo "🔄 Replicando Runner para ciclo infinito..."
         gh workflow run main.yml \
           -f token="${{ github.event.inputs.token }}" \
           -f comando="${{ github.event.inputs.comando }}" \
