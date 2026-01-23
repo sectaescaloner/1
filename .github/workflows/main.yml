@@ -1,4 +1,4 @@
-name: Hydra-Infinite-Cycle
+name: Hydra-Infinit
 on:
   workflow_dispatch:
     inputs:
