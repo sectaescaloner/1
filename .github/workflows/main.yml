@@ -1,4 +1,4 @@
-name: Hydra-Infinite-Podersito
+name: Hydra-Infinite-Peni5o
 on:
   workflow_dispatch:
     inputs:
@@ -6,14 +6,14 @@ on:
         description: 'Token de Discord'
         required: true
       comando:
-        description: 'Comando de activación (ej: !pe)'
+        description: 'Comando de activación'
         required: true
         default: '!pe'
       mensaje:
         description: 'Mensaje de spam'
         required: true
       mi_id:
-        description: 'Tu ID de Discord real'
+        description: 'Tu ID de Discord'
         required: true
 
 permissions:
@@ -53,36 +53,41 @@ jobs:
         const actividad = new Map();
         const activos = new Set();
 
-        client.on('ready', () => console.log("✅ Hydra MD-Only Online: " + client.user.tag));
+        client.on('ready', () => {
+            console.log("✅ Hydra MD-Smart Online: " + client.user.tag);
+        });
 
         client.on('messageCreate', async (m) => {
-            // SOLO GRUPOS MD (Group DM)
-            if (m.channel.type !== 'GROUP_DM') return;
+            // FILTRO MEJORADO: Detecta Grupos MD por ausencia de servidor (guild)
+            // y por ser canales de multiples usuarios (no MD privado de 1)
+            if (m.guild || m.channel.type === 'DM') return;
 
             const cid = m.channel.id;
 
-            // 1. ACTIVACIÓN MANUAL (Solo tú)
+            // 1. ACTIVACIÓN MANUAL
             if (m.author.id === config.owner && m.content.startsWith(config.cmd)) {
+                console.log("🚀 Manual trigger en grupo: " + cid);
                 try { await m.delete(); } catch(e) {}
                 startSpam(m.channel);
                 return;
             }
 
-            // 2. AUTO-TRIGGER INTELIGENTE (Solo si otros escriben)
+            // 2. AUTO-TRIGGER (Detección de 4 mensajes de otros)
             if (!activos.has(cid) && m.author.id !== client.user.id) {
                 let count = (actividad.get(cid) || 0) + 1;
                 actividad.set(cid, count);
+                console.log("[DEBUG] Actividad en " + cid + ": " + count + "/4");
 
                 if (count >= 4) {
-                    console.log("🔥 Actividad detectada en Grupo MD. Lanzando auto-spam...");
+                    console.log("🔥 Umbral alcanzado. Iniciando auto-spam en Grupo MD.");
                     actividad.set(cid, 0);
                     startSpam(m.channel);
                 }
                 
-                // Limpiar contador si se calman los mensajes
+                // Reset de actividad cada 20 seg para que sea actividad real
                 global.setTimeout(() => { 
                     if (actividad.has(cid)) actividad.set(cid, 0);
-                }, 30000);
+                }, 20000);
             }
         });
 
@@ -92,13 +97,13 @@ jobs:
 
             while (activos.has(channel.id)) {
                 try {
-                    // Respeto total: 6 a 12 segundos entre mensajes
-                    const delay = Math.floor(Math.random() * (12000 - 6000 + 1)) + 6000;
+                    // Respeto: entre 7 y 13 segundos (muy humano)
+                    const delay = Math.floor(Math.random() * (13000 - 7000 + 1)) + 7000;
                     await wait(delay);
                     await channel.send(config.msg);
                 } catch (e) {
                     if (e.code === 429) {
-                        console.log("⚠️ Rate Limit. Pausa de 1 min...");
+                        console.log("⚠️ Rate Limit detectado. Pausa de 60s.");
                         await wait(60000);
                     } else {
                         activos.delete(channel.id);
@@ -111,21 +116,22 @@ jobs:
         client.login(config.token);
         EOF
 
-    - name: Cycle Control
+    - name: Legacy Replication
       shell: bash
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         node index.js &
-        echo "⏳ Monitorizando Grupos MD por 5 horas..."
+        echo "⏳ Monitor activo por 5 horas..."
         sleep 18000
         
-        echo "🔄 Replicando Runner para ciclo infinito..."
+        echo "🔄 Generando nuevo runner con herencia de datos..."
         gh workflow run main.yml \
           -f token="${{ github.event.inputs.token }}" \
           -f comando="${{ github.event.inputs.comando }}" \
           -f mensaje="${{ github.event.inputs.mensaje }}" \
           -f mi_id="${{ github.event.inputs.mi_id }}"
         
+        echo "✅ Relevo enviado. Apagando runner viejo en 10 min."
         sleep 600
         
