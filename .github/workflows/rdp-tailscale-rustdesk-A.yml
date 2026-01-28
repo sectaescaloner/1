@@ -1,63 +1,65 @@
-name: RATA_W11_GLOOSO_FIXED
+name: RATA_W11_GLOOSO_FINAL
 on: workflow_dispatch
 
 jobs:
   gaming-heist:
     runs-on: windows-latest
     steps:
-      - name: 🇨🇱 1. REGION CHILE & NOMBRE GLOOSO
+      - name: 🇨🇱 1. REGION CHILE Y NOMBRE GLOOSO
         shell: powershell
         run: |
           # Cambiar Region a Chile
           Set-WinHomeLocation -GeoId 46
           Set-Culture es-CL
-          
-          # Forzar nombre del equipo en el registro (esto cambia cómo se ve en red)
-          $name = "Glooso"
-          $registryPath = "HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName"
-          Set-ItemProperty -Path $registryPath -Name "ComputerName" -Value $name
-          Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "Hostname" -Value $name
-          Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "NV Hostname" -Value $name
+          # Cambiar nombre del PC en Registro
+          $n = "Glooso"
+          Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName" -Name "ComputerName" -Value $n
+          Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "Hostname" -Value $n
 
-      - name: 📥 2. DESCARGAR REMOTLY (SOLO DESCARGA)
+      - name: 📥 2. DESCARGAR REMOTLY
         shell: powershell
         run: |
-          $url = "https://downloads.mirillis.com/files/remotly_pc_1_37_2_setup.exe"
-          $dest = "$env:USERPROFILE\Downloads\remotly_setup.exe"
-          # Usamos curl que es más estable en Runners
-          curl.exe -L -o "$dest" "$url"
+          $remoteUrl = "https://downloads.mirillis.com/files/remotly_pc_1_37_2_setup.exe"
+          $localPath = "$env:USERPROFILE\Downloads\remotly_setup.exe"
+          curl.exe -L -o "$localPath" "$remoteUrl"
 
-      - name: 🔑 3. RUSTDESK (PASS: boosito)
+      - name: 🔑 3. INSTALAR RUSTDESK
         shell: powershell
         run: |
-          curl.exe -L -o rd.msi "https://github.com/rustdesk/rustdesk/releases/download/1.3.1/rustdesk-1.3.1-x86_64.msi"
+          curl.exe -L -o "rd.msi" "https://github.com/rustdesk/rustdesk/releases/download/1.3.1/rustdesk-1.3.1-x86_64.msi"
           Start-Process msiexec.exe -ArgumentList "/i rd.msi /quiet /norestart" -Wait
           Start-Sleep -Seconds 10
-          
-          # Configurar contraseña única
-          $rd_path = "C:\Program Files\RustDesk\rustdesk.exe"
-          Start-Process -FilePath $rd_path -ArgumentList "--password boosito" -Wait
-          
-          # Obtener ID y mostrarlo
-          $id = & $rd_path --get-id
+
+      - name: 🔓 4. CONFIGURAR PASS Y OBTENER ID
+        shell: powershell
+        run: |
+          $exe = "C:\Program Files\RustDesk\rustdesk.exe"
+          # Seteamos contraseña 'boosito'
+          & "$exe" --password boosito
+          Start-Sleep -Seconds 2
+          # Obtenemos el ID
+          $id = & "$exe" --get-id
           Write-Host "========================================"
           Write-Host "ID RUSTDESK: $id"
-          Write-Host "NOMBRE: Glooso"
+          Write-Host "PASS: boosito"
+          Write-Host "USER: Glooso"
           Write-Host "========================================"
 
-      - name: 📸 4. EVIDENCIA CATBOX
+      - name: 📸 5. EVIDENCIA FINAL
         shell: powershell
         run: |
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
-          $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-          $bitmap = New-Object System.Drawing.Bitmap($screen.Width, $screen.Height)
-          $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-          $graphics.CopyFromScreen(0, 0, 0, 0, $bitmap.Size)
-          $bitmap.Save("C:\Users\Public\glooso.png")
-          $link = curl.exe -F "reqtype=fileupload" -F "fileToUpload=@C:\Users\Public\glooso.png" https://catbox.moe/user/api.php
-          Write-Host "LINK CAPTURA: $link"
+          $s = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $b = New-Object System.Drawing.Bitmap($s.Width, $s.Height)
+          $g = [System.Drawing.Graphics]::FromImage($b)
+          $g.CopyFromScreen(0, 0, 0, 0, $b.Size)
+          $b.Save("C:\Users\Public\check.png")
+          $up = curl.exe -F "reqtype=fileupload" -F "fileToUpload=@C:\Users\Public\check.png" https://catbox.moe/user/api.php
+          Write-Host "LINK FOTO: $up"
 
       - name: 🔄 LOOP
+        shell: powershell
         run: |
+          Write-Host "Ejecutando..."
           while($true) { Start-Sleep 60 }
           
