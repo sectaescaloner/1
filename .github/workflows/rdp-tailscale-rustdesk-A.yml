@@ -1,4 +1,4 @@
-name: RATA_W11_GLOOSO_FINAL
+name: RATA_W11_GLOOSO_GOFILE
 on: workflow_dispatch
 
 jobs:
@@ -8,10 +8,8 @@ jobs:
       - name: 🇨🇱 1. REGION CHILE Y NOMBRE GLOOSO
         shell: powershell
         run: |
-          # Cambiar Region a Chile
           Set-WinHomeLocation -GeoId 46
           Set-Culture es-CL
-          # Cambiar nombre del PC en Registro
           $n = "Glooso"
           Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName" -Name "ComputerName" -Value $n
           Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "Hostname" -Value $n
@@ -34,10 +32,8 @@ jobs:
         shell: powershell
         run: |
           $exe = "C:\Program Files\RustDesk\rustdesk.exe"
-          # Seteamos contraseña 'boosito'
           & "$exe" --password boosito
           Start-Sleep -Seconds 2
-          # Obtenemos el ID
           $id = & "$exe" --get-id
           Write-Host "========================================"
           Write-Host "ID RUSTDESK: $id"
@@ -45,21 +41,34 @@ jobs:
           Write-Host "USER: Glooso"
           Write-Host "========================================"
 
-      - name: 📸 5. EVIDENCIA FINAL
+      - name: 📸 5. EVIDENCIA GOFILE
         shell: powershell
         run: |
+          # Captura de pantalla
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
           $s = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
           $b = New-Object System.Drawing.Bitmap($s.Width, $s.Height)
           $g = [System.Drawing.Graphics]::FromImage($b)
           $g.CopyFromScreen(0, 0, 0, 0, $b.Size)
-          $b.Save("C:\Users\Public\check.png")
-          $up = curl.exe -F "reqtype=fileupload" -F "fileToUpload=@C:\Users\Public\check.png" https://catbox.moe/user/api.php
-          Write-Host "LINK FOTO: $up"
+          $imgPath = "C:\Users\Public\evidence.png"
+          $b.Save($imgPath)
+
+          # Obtener servidor de Gofile
+          $serverResp = curl.exe -s https://api.gofile.io/servers
+          $server = ($serverResp | ConvertFrom-Json).data.servers[0].name
+          
+          # Subir archivo
+          Write-Host "Subiendo a servidor: $server"
+          $uploadResp = curl.exe -F "file=@$imgPath" "https://$($server).gofile.io/contents/uploadfile"
+          $downloadPage = ($uploadResp | ConvertFrom-Json).data.downloadPage
+          
+          Write-Host "----------------------------------------"
+          Write-Host "LINK DE CAPTURA (Gofile): $downloadPage"
+          Write-Host "----------------------------------------"
 
       - name: 🔄 LOOP
         shell: powershell
         run: |
-          Write-Host "Ejecutando..."
+          Write-Host "Runner Activo..."
           while($true) { Start-Sleep 60 }
-          
+
