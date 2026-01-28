@@ -1,50 +1,60 @@
-name: RATA_W11_GLOOSO
+name: RATA_W11_GLOOSO_FIXED
 on: workflow_dispatch
 
 jobs:
   gaming-heist:
     runs-on: windows-latest
     steps:
-      - name: 🏷️ 1. RENOMBRAR EQUIPO A GLOOSO
+      - name: 🇨🇱 1. REGION CHILE & NOMBRE GLOOSO
         shell: powershell
         run: |
-          # Cambia el nombre del host para que no salga "runner-..."
-          Rename-Computer -NewName "Glooso" -Force -ErrorAction SilentlyContinue
+          # Cambiar Region a Chile
+          Set-WinHomeLocation -GeoId 46
+          Set-Culture es-CL
+          
+          # Cambiar nombre del PC en el registro (evita el bloqueo de reinicio)
+          $name = "Glooso"
+          Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName' -Name 'ComputerName' -Value $name
+          Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ActiveComputerName' -Name 'ComputerName' -Value $name
+          Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters' -Name 'Hostname' -Value $name
+          Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters' -Name 'NV Hostname' -Value $name
 
-      - name: 📥 2. DESCARGAR REMOTLY (SOLO DESCARGA)
+      - name: 📥 2. DESCARGAR REMOTLY (SIN COLGARSE)
         shell: powershell
         run: |
+          # Usamos curl para evitar que se quede pegado
           $url = "https://downloads.mirillis.com/files/remotly_pc_1_37_2_setup.exe"
           $dest = "$env:USERPROFILE\Downloads\remotly_setup.exe"
-          Invoke-WebRequest -Uri $url -OutFile $dest
-          Write-Host "Archivo guardado en Downloads: $dest"
+          curl.exe -L -o $dest $url
+          Write-Host "Remotly guardado en Downloads."
 
-      - name: 🔑 3. INSTALAR RUSTDESK & PASSWORD
+      - name: 🔑 3. RUSTDESK (PASS: boosito)
         shell: powershell
         run: |
           curl.exe -L -o rd.msi "https://github.com/rustdesk/rustdesk/releases/download/1.3.1/rustdesk-1.3.1-x86_64.msi"
           Start-Process msiexec.exe -ArgumentList "/i rd.msi /quiet /norestart" -Wait
           Start-Sleep -Seconds 10
-          # Forzar contraseña única
+          
+          # Configurar contraseña y sacar ID
           & "C:\Program Files\RustDesk\rustdesk.exe" --password boosito
           $id = & "C:\Program Files\RustDesk\rustdesk.exe" --get-id
           Write-Host "========================================"
           Write-Host "ID RUSTDESK: $id"
-          Write-Host "PASSWORD: boosito"
+          Write-Host "CONTRASEÑA: boosito"
+          Write-Host "NOMBRE EQUIPO: Glooso"
           Write-Host "========================================"
 
-      - name: 📸 4. CAPTURA DE PANTALLA (ID EVIDENCIA)
+      - name: 📸 4. EVIDENCIA
         shell: powershell
         run: |
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
-          Start-Sleep -Seconds 5
           $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
           $bitmap = New-Object System.Drawing.Bitmap($screen.Width, $screen.Height)
           $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
           $graphics.CopyFromScreen(0, 0, 0, 0, $bitmap.Size)
-          $bitmap.Save("C:\Users\Public\rustdesk_id.png")
-          $link = curl.exe -F "reqtype=fileupload" -F "fileToUpload=@C:\Users\Public\rustdesk_id.png" https://catbox.moe/user/api.php
-          Write-Host "LINK DE LA CAPTURA: $link"
+          $bitmap.Save("C:\Users\Public\glooso_check.png")
+          $link = curl.exe -F "reqtype=fileupload" -F "fileToUpload=@C:\Users\Public\glooso_check.png" https://catbox.moe/user/api.php
+          Write-Host "CAPTURAS: $link"
 
       - name: 🔄 LOOP
         run: |
