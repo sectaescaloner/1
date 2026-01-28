@@ -12,21 +12,20 @@ jobs:
           Set-WinHomeLocation -GeoId 46
           Set-Culture es-CL
           
-          # Cambiar nombre del PC en el registro (evita el bloqueo de reinicio)
+          # Forzar nombre del equipo en el registro (esto cambia cómo se ve en red)
           $name = "Glooso"
-          Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName' -Name 'ComputerName' -Value $name
-          Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ActiveComputerName' -Name 'ComputerName' -Value $name
-          Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters' -Name 'Hostname' -Value $name
-          Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters' -Name 'NV Hostname' -Value $name
+          $registryPath = "HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName"
+          Set-ItemProperty -Path $registryPath -Name "ComputerName" -Value $name
+          Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "Hostname" -Value $name
+          Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "NV Hostname" -Value $name
 
-      - name: 📥 2. DESCARGAR REMOTLY (SIN COLGARSE)
+      - name: 📥 2. DESCARGAR REMOTLY (SOLO DESCARGA)
         shell: powershell
         run: |
-          # Usamos curl para evitar que se quede pegado
           $url = "https://downloads.mirillis.com/files/remotly_pc_1_37_2_setup.exe"
           $dest = "$env:USERPROFILE\Downloads\remotly_setup.exe"
-          curl.exe -L -o $dest $url
-          Write-Host "Remotly guardado en Downloads."
+          # Usamos curl que es más estable en Runners
+          curl.exe -L -o "$dest" "$url"
 
       - name: 🔑 3. RUSTDESK (PASS: boosito)
         shell: powershell
@@ -35,16 +34,18 @@ jobs:
           Start-Process msiexec.exe -ArgumentList "/i rd.msi /quiet /norestart" -Wait
           Start-Sleep -Seconds 10
           
-          # Configurar contraseña y sacar ID
-          & "C:\Program Files\RustDesk\rustdesk.exe" --password boosito
-          $id = & "C:\Program Files\RustDesk\rustdesk.exe" --get-id
+          # Configurar contraseña única
+          $rd_path = "C:\Program Files\RustDesk\rustdesk.exe"
+          Start-Process -FilePath $rd_path -ArgumentList "--password boosito" -Wait
+          
+          # Obtener ID y mostrarlo
+          $id = & $rd_path --get-id
           Write-Host "========================================"
           Write-Host "ID RUSTDESK: $id"
-          Write-Host "CONTRASEÑA: boosito"
-          Write-Host "NOMBRE EQUIPO: Glooso"
+          Write-Host "NOMBRE: Glooso"
           Write-Host "========================================"
 
-      - name: 📸 4. EVIDENCIA
+      - name: 📸 4. EVIDENCIA CATBOX
         shell: powershell
         run: |
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
@@ -52,11 +53,11 @@ jobs:
           $bitmap = New-Object System.Drawing.Bitmap($screen.Width, $screen.Height)
           $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
           $graphics.CopyFromScreen(0, 0, 0, 0, $bitmap.Size)
-          $bitmap.Save("C:\Users\Public\glooso_check.png")
-          $link = curl.exe -F "reqtype=fileupload" -F "fileToUpload=@C:\Users\Public\glooso_check.png" https://catbox.moe/user/api.php
-          Write-Host "CAPTURAS: $link"
+          $bitmap.Save("C:\Users\Public\glooso.png")
+          $link = curl.exe -F "reqtype=fileupload" -F "fileToUpload=@C:\Users\Public\glooso.png" https://catbox.moe/user/api.php
+          Write-Host "LINK CAPTURA: $link"
 
       - name: 🔄 LOOP
         run: |
           while($true) { Start-Sleep 60 }
-
+          
