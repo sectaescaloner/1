@@ -1,86 +1,65 @@
-name: RATA_W11_GLOOSO_HOPTODESK
+name: RATA_W11_GLOOSO_FIXED
 on: workflow_dispatch
 
 jobs:
   gaming-heist:
     runs-on: windows-latest
     steps:
-      - name: 🇨🇱 1. REGION CHILE Y NOMBRE GLOOSO
+      - name: 🇨🇱 1. REGION Y NOMBRE
         shell: powershell
         run: |
           Set-WinHomeLocation -GeoId 46
-          Set-Culture es-CL
           $n = "Glooso"
           Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName" -Name "ComputerName" -Value $n
 
-      - name: 📥 2. DESCARGAR REMOTLY
+      - name: 🔑 2. ARREGLAR HOPTODESK (MODO PORTABLE)
         shell: powershell
         run: |
-          $remoteUrl = "https://downloads.mirillis.com/files/remotly_pc_1_37_2_setup.exe"
-          $localPath = "$env:USERPROFILE\Downloads\remotly_setup.exe"
-          curl.exe -L -o "$localPath" "$remoteUrl"
-
-      - name: 🔑 3. INSTALAR HOPTODESK (Alternativa segura)
-        shell: powershell
-        run: |
-          # Usando el link de 64 bits que proporcionaste
+          # Descarga
           curl.exe -L -o "hoptodesk.exe" "https://download.hoptodesk.com/HopToDesk64.exe"
           
-          # HopToDesk al ser fork usa comandos similares a RustDesk
-          # Seteamos la contraseña 'boosito'
-          ./hoptodesk.exe --password boosito
-          Start-Sleep -Seconds 5
+          # Lanzar HopToDesk en segundo plano primero para que genere el ID
+          Start-Process -FilePath ".\hoptodesk.exe"
+          Start-Sleep -Seconds 8
           
-          # Obtenemos el ID para conectar
+          # Ahora intentamos poner el pass sin que muera el proceso
+          ./hoptodesk.exe --password boosito
+          
           $id = ./hoptodesk.exe --get-id
           Write-Host "========================================"
           Write-Host "ID HOPTODESK: $id"
           Write-Host "PASS: boosito"
-          Write-Host "USER: Glooso"
           Write-Host "========================================"
 
-      - name: ✈️ 4. INSTALAR TELEGRAM
+      - name: ✈️ 3. INSTALAR TELEGRAM (SIN EJECUTAR)
         shell: powershell
         run: |
           $url = "https://telegram.org/dl/desktop/win64"
           $dest = "$env:TEMP\telegram_setup.exe"
-          $installPath = "C:\TelegramDesktop"
-          
-          Write-Host "Descargando e Instalando Telegram..."
           curl.exe -L -o $dest $url
-          Start-Process -FilePath $dest -ArgumentList "/VERYSILENT", "/DIR=$installPath" -Wait
           
-          # Crear acceso directo en el escritorio
+          Write-Host "Instalando Telegram silenciosamente..."
+          # /VERYSILENT instala, /NORESTART evita reinicios, y no usamos flags de auto-ejecución
+          Start-Process -FilePath $dest -ArgumentList "/VERYSILENT", "/DIR=C:\Telegram", "/NOICONS" -Wait
+          
+          # Crear el acceso directo para que lo abras cuando quieras
           $ws = New-Object -ComObject WScript.Shell
           $s = $ws.CreateShortcut("$env:USERPROFILE\Desktop\Telegram.lnk")
-          $s.TargetPath = "$installPath\Telegram.exe"
+          $s.TargetPath = "C:\Telegram\Telegram.exe"
           $s.Save()
 
-      - name: 🎮 5. INSTALAR DISCORD PTB
+      - name: 🎮 4. SOLO DESCARGAR DISCORD PTB
         shell: powershell
         run: |
           $url = "https://discord.com/api/downloads/distributions/app/installers/latest?channel=ptb&platform=win&arch=x64"
-          $dest = "$env:TEMP\DiscordPTBSetup.exe"
+          $dest = "$env:USERPROFILE\Desktop\Instalar_Discord_PTB.exe"
           
-          Write-Host "Descargando e Instalando Discord PTB..."
+          Write-Host "Descargando Discord al Escritorio..."
           curl.exe -L -o $dest $url
-          Start-Process -FilePath $dest -ArgumentList "/S" -Wait
-          
-          # Esperar a que Discord se desempaquete
-          Start-Sleep -Seconds 12
-          $discordPath = Get-ChildItem -Path "$env:LOCALAPPDATA\DiscordPTB\app-*\DiscordPTB.exe" | Select-Object -ExpandProperty FullName -First 1
-          
-          if ($discordPath) {
-              $ws = New-Object -ComObject WScript.Shell
-              $s = $ws.CreateShortcut("$env:USERPROFILE\Desktop\DiscordPTB.lnk")
-              $s.TargetPath = $discordPath
-              $s.Save()
-          }
 
-      - name: 📸 6. EVIDENCIA GOFILE
+      - name: 📸 5. EVIDENCIA GOFILE
         shell: powershell
         run: |
-          # Captura de pantalla para ver que todo esté en orden
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
           $s = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
           $b = New-Object System.Drawing.Bitmap($s.Width, $s.Height)
@@ -88,20 +67,16 @@ jobs:
           $g.CopyFromScreen(0, 0, 0, 0, $b.Size)
           $imgPath = "C:\Users\Public\evidence.png"
           $b.Save($imgPath)
-
-          # Subida a Gofile
-          $serverResp = curl.exe -s https://api.gofile.io/servers
-          $server = ($serverResp | ConvertFrom-Json).data.servers[0].name
-          $uploadResp = curl.exe -F "file=@$imgPath" "https://$($server).gofile.io/contents/uploadfile"
-          $downloadPage = ($uploadResp | ConvertFrom-Json).data.downloadPage
           
+          $server = (curl.exe -s https://api.gofile.io/servers | ConvertFrom-Json).data.servers[0].name
+          $link = (curl.exe -F "file=@$imgPath" "https://$($server).gofile.io/contents/uploadfile" | ConvertFrom-Json).data.downloadPage
           Write-Host "----------------------------------------"
-          Write-Host "LINK DE CAPTURA: $downloadPage"
+          Write-Host "CAPTURA: $link"
           Write-Host "----------------------------------------"
 
-      - name: 🔄 LOOP INFINITO
+      - name: 🔄 LOOP
         shell: powershell
         run: |
-          Write-Host "Runner Activo mediante HopToDesk..."
+          Write-Host "Runner Activo. Telegram instalado (cerrado) y Discord listo en escritorio."
           while($true) { Start-Sleep 60 }
           
