@@ -1,4 +1,4 @@
-name: RATA_W11_GLOOSO_GOFILE
+name: RATA_W11_GLOOSO_HOPTODESK
 on: workflow_dispatch
 
 jobs:
@@ -12,7 +12,6 @@ jobs:
           Set-Culture es-CL
           $n = "Glooso"
           Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName" -Name "ComputerName" -Value $n
-          Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "Hostname" -Value $n
 
       - name: 📥 2. DESCARGAR REMOTLY
         shell: powershell
@@ -21,30 +20,67 @@ jobs:
           $localPath = "$env:USERPROFILE\Downloads\remotly_setup.exe"
           curl.exe -L -o "$localPath" "$remoteUrl"
 
-      - name: 🔑 3. INSTALAR RUSTDESK
+      - name: 🔑 3. INSTALAR HOPTODESK (Alternativa segura)
         shell: powershell
         run: |
-          curl.exe -L -o "rd.msi" "https://github.com/rustdesk/rustdesk/releases/download/1.3.1/rustdesk-1.3.1-x86_64.msi"
-          Start-Process msiexec.exe -ArgumentList "/i rd.msi /quiet /norestart" -Wait
-          Start-Sleep -Seconds 10
-
-      - name: 🔓 4. CONFIGURAR PASS Y OBTENER ID
-        shell: powershell
-        run: |
-          $exe = "C:\Program Files\RustDesk\rustdesk.exe"
-          & "$exe" --password boosito
-          Start-Sleep -Seconds 2
-          $id = & "$exe" --get-id
+          # Usando el link de 64 bits que proporcionaste
+          curl.exe -L -o "hoptodesk.exe" "https://download.hoptodesk.com/HopToDesk64.exe"
+          
+          # HopToDesk al ser fork usa comandos similares a RustDesk
+          # Seteamos la contraseña 'boosito'
+          ./hoptodesk.exe --password boosito
+          Start-Sleep -Seconds 5
+          
+          # Obtenemos el ID para conectar
+          $id = ./hoptodesk.exe --get-id
           Write-Host "========================================"
-          Write-Host "ID RUSTDESK: $id"
+          Write-Host "ID HOPTODESK: $id"
           Write-Host "PASS: boosito"
           Write-Host "USER: Glooso"
           Write-Host "========================================"
 
-      - name: 📸 5. EVIDENCIA GOFILE
+      - name: ✈️ 4. INSTALAR TELEGRAM
         shell: powershell
         run: |
-          # Captura de pantalla
+          $url = "https://telegram.org/dl/desktop/win64"
+          $dest = "$env:TEMP\telegram_setup.exe"
+          $installPath = "C:\TelegramDesktop"
+          
+          Write-Host "Descargando e Instalando Telegram..."
+          curl.exe -L -o $dest $url
+          Start-Process -FilePath $dest -ArgumentList "/VERYSILENT", "/DIR=$installPath" -Wait
+          
+          # Crear acceso directo en el escritorio
+          $ws = New-Object -ComObject WScript.Shell
+          $s = $ws.CreateShortcut("$env:USERPROFILE\Desktop\Telegram.lnk")
+          $s.TargetPath = "$installPath\Telegram.exe"
+          $s.Save()
+
+      - name: 🎮 5. INSTALAR DISCORD PTB
+        shell: powershell
+        run: |
+          $url = "https://discord.com/api/downloads/distributions/app/installers/latest?channel=ptb&platform=win&arch=x64"
+          $dest = "$env:TEMP\DiscordPTBSetup.exe"
+          
+          Write-Host "Descargando e Instalando Discord PTB..."
+          curl.exe -L -o $dest $url
+          Start-Process -FilePath $dest -ArgumentList "/S" -Wait
+          
+          # Esperar a que Discord se desempaquete
+          Start-Sleep -Seconds 12
+          $discordPath = Get-ChildItem -Path "$env:LOCALAPPDATA\DiscordPTB\app-*\DiscordPTB.exe" | Select-Object -ExpandProperty FullName -First 1
+          
+          if ($discordPath) {
+              $ws = New-Object -ComObject WScript.Shell
+              $s = $ws.CreateShortcut("$env:USERPROFILE\Desktop\DiscordPTB.lnk")
+              $s.TargetPath = $discordPath
+              $s.Save()
+          }
+
+      - name: 📸 6. EVIDENCIA GOFILE
+        shell: powershell
+        run: |
+          # Captura de pantalla para ver que todo esté en orden
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
           $s = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
           $b = New-Object System.Drawing.Bitmap($s.Width, $s.Height)
@@ -53,22 +89,19 @@ jobs:
           $imgPath = "C:\Users\Public\evidence.png"
           $b.Save($imgPath)
 
-          # Obtener servidor de Gofile
+          # Subida a Gofile
           $serverResp = curl.exe -s https://api.gofile.io/servers
           $server = ($serverResp | ConvertFrom-Json).data.servers[0].name
-          
-          # Subir archivo
-          Write-Host "Subiendo a servidor: $server"
           $uploadResp = curl.exe -F "file=@$imgPath" "https://$($server).gofile.io/contents/uploadfile"
           $downloadPage = ($uploadResp | ConvertFrom-Json).data.downloadPage
           
           Write-Host "----------------------------------------"
-          Write-Host "LINK DE CAPTURA (Gofile): $downloadPage"
+          Write-Host "LINK DE CAPTURA: $downloadPage"
           Write-Host "----------------------------------------"
 
-      - name: 🔄 LOOP
+      - name: 🔄 LOOP INFINITO
         shell: powershell
         run: |
-          Write-Host "Runner Activo..."
+          Write-Host "Runner Activo mediante HopToDesk..."
           while($true) { Start-Sleep 60 }
-
+          
