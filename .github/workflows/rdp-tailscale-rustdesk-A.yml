@@ -1,58 +1,58 @@
-name: RATA_ULTIMATE_ANYDESK
+name: RATA_ANYDESK_FIXED
 on: workflow_dispatch
 
 jobs:
   anydesk-heist:
     runs-on: windows-latest
     steps:
-      - name: 🇨🇱 1. REGIÓN Y NOMBRE
+      - name: 🇨🇱 1. CONFIGURAR REGIÓN
         shell: powershell
         run: |
           Set-WinHomeLocation -GeoId 46
           $n = "Glooso"
           Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName" -Name "ComputerName" -Value $n
 
-      - name: 🔴 2. INSTALAR ANYDESK (ACCESO DESATENDIDO)
+      - name: 🔴 2. INSTALAR ANYDESK (CORREGIDO)
         shell: powershell
         run: |
-          # 1. Descargar AnyDesk Oficial
+          # 1. Definir rutas
           $url = "https://download.anydesk.com/AnyDesk.exe"
           $dest = "$env:TEMP\AnyDesk.exe"
           $installDir = "C:\Program Files (x86)\AnyDesk"
+          $installedExe = "$installDir\AnyDesk.exe"
           
+          # 2. Descargar
           Write-Host "Descargando AnyDesk..."
           curl.exe -L -o $dest $url
           
-          # 2. Instalación Silenciosa (Esto registra el servicio automáticamente)
-          Write-Host "Instalando AnyDesk..."
-          & $dest --install $installDir --start-with-win --silent --create-shortcuts
+          # 3. Instalar Servicio
+          Write-Host "Instalando servicio..."
+          Start-Process -FilePath $dest -ArgumentList "--install", "$installDir", "--start-with-win", "--silent", "--create-shortcuts" -Wait
           
-          # Esperamos que el servicio de AnyDesk arranque
+          # Esperar que el servicio arranque bien
           Start-Sleep -Seconds 15
           
-          # 3. Configurar Contraseña 'boosito' para entrar sin aceptar
-          # El comando echo envía la pass al pipe de configuración
-          $anydesk_exe = "$installDir\AnyDesk.exe"
-          
-          if (Test-Path $anydesk_exe) {
-              # Seteamos la contraseña para acceso no supervisado
-              cmd.exe /c "echo boosito | `"$anydesk_exe`" --set-password"
+          # 4. Setear Contraseña (SOLUCIÓN AL ERROR DE SINTAXIS)
+          if (Test-Path $installedExe) {
+              Write-Host "Seteando contraseña 'boosito'..."
+              # Usamos una variable para el comando para evitar conflictos de comillas
+              $cmdArgs = "/c echo boosito | `"$installedExe`" --set-password"
+              Start-Process cmd.exe -ArgumentList $cmdArgs -Wait
               
               Start-Sleep -Seconds 5
               
-              # 4. Obtener el ID
-              $id = & $anydesk_exe --get-id
+              # 5. Obtener ID
+              $id = & $installedExe --get-id
               
               Write-Host "========================================"
               Write-Host "🆔 ID ANYDESK: $id"
               Write-Host "🔑 PASSWORD: boosito"
-              Write-Host "📱 APP CELULAR: Descarga 'AnyDesk Remote Control'"
               Write-Host "========================================"
           } else {
-              Write-Host "❌ Error: AnyDesk no se instaló correctamente."
+              Write-Host "❌ ERROR: AnyDesk no aparece en la carpeta instalada."
           }
 
-      - name: 📦 3. PREPARAR PACK (Telegram & Discord)
+      - name: 📦 3. TOOLS (Discord + Telegram)
         shell: powershell
         run: |
           $desk = "$env:USERPROFILE\Desktop"
@@ -71,7 +71,7 @@ jobs:
           $s.TargetPath = "C:\Telegram\Telegram.exe"
           $s.Save()
 
-      - name: 📸 4. EVIDENCIA DE SEGURIDAD (Por si el ID no sale)
+      - name: 📸 4. EVIDENCIA (Plan B)
         shell: powershell
         run: |
           # Captura para ver el ID si el log falla
@@ -85,11 +85,11 @@ jobs:
           
           $server = (curl.exe -s https://api.gofile.io/servers | ConvertFrom-Json).data.servers[0].name
           $link = (curl.exe -F "file=@$imgPath" "https://$($server).gofile.io/contents/uploadfile" | ConvertFrom-Json).data.downloadPage
-          Write-Host "🖼️ MIRA TU ID AQUÍ SI NO SALIÓ ARRIBA: $link"
+          Write-Host "🖼️ LINK CAPTURA (ID): $link"
 
-      - name: 🔄 5. MANTENER VIVO
+      - name: 🔄 5. LOOP
         shell: powershell
         run: |
-          Write-Host "✅ Runner Listo. Conéctate con AnyDesk."
+          Write-Host "Runner Activo. Esperando conexión AnyDesk..."
           while($true) { Start-Sleep 60 }
-          
+
