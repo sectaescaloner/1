@@ -1,11 +1,11 @@
-name: RDP_NGROK_FINAL_V3
+name: RDP_PLAYIT_FINAL_TEXTO
 on: workflow_dispatch
 
 jobs:
   deploy:
     runs-on: windows-latest
     steps:
-      - name: 1. CONFIG RDP
+      - name: 1. SETUP RDP
         shell: powershell
         run: |
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
@@ -13,39 +13,42 @@ jobs:
           net user boosito Parinuxd123 /add
           net localgroup administrators boosito /add
 
-      - name: 2. INSTALAR NGROK
+      - name: 2. INSTALAR Y CONFIGURAR PLAYIT
         shell: powershell
         run: |
-          choco install ngrok -y
-          # Usamos la ruta completa del shim de choco para el token
-          & "C:\ProgramData\chocolatey\bin\ngrok.exe" authtoken 393CwGNqE4jpyhdAuvNewGtG58B_5roLoskHKD1jLw4CCigti
+          curl.exe -L -o playit.exe "https://github.com/playit-cloud/playit-agent/releases/latest/download/playit-windows-x86_64.exe"
+          
+          Write-Host "Generando túnel TCP..."
+          # Lanzamos playit para que cree el túnel al puerto 3389
+          Start-Process -FilePath .\playit.exe -ArgumentList "--no-auth", "--p", "3389", "--proto", "tcp"
+          Start-Sleep -Seconds 20
 
-      - name: 3. INICIAR TUNEL Y CAPTURAR LOG
+      - name: 3. EXTRAER DIRECCIÓN (SIN FOTOS)
         shell: powershell
         run: |
-          Write-Host "Iniciando tunel con log de depuracion..."
-          # Lanzamos con la ruta completa y volcamos errores a un archivo
-          Start-Process -FilePath "C:\ProgramData\chocolatey\bin\ngrok.exe" -ArgumentList "tcp", "3389", "--log", "stdout" -RedirectStandardOutput "ngrok.log"
-          Start-Sleep -Seconds 30
-
-      - name: 4. OBTENER DIRECCION O VER ERROR
-        shell: powershell
-        run: |
-          $json = curl.exe -s http://localhost:4040/api/tunnels | ConvertFrom-Json
-          if ($json.tunnels.Count -gt 0) {
-              $url = $json.tunnels[0].public_url.Replace("tcp://", "")
-              Write-Host "========================================"
-              Write-Host "🔗 CONECTATE AQUI: $url"
-              Write-Host "👤 USER: boosito"
-              Write-Host "🔑 PASS: Parinuxd123"
-              Write-Host "========================================"
-          } else {
-              Write-Host "❌ ERROR: El tunel no inicio. Mostrando log de Ngrok:"
-              Get-Content "ngrok.log" # Esto nos dira el error real de Ngrok
+          # Playit guarda la info en un log o podemos verla en la API local
+          # Para no fallar, vamos a intentar que aparezca en el log de salida
+          Write-Host "========================================"
+          Write-Host "BUSCANDO TU DIRECCIÓN DE CONEXIÓN..."
+          
+          # Intentamos sacar la info directamente del proceso
+          $check = Get-Process playit -ErrorAction SilentlyContinue
+          if ($check) {
+              Write-Host "✅ Playit está corriendo."
+              Write-Host "CONÉCTATE USANDO LA APP WINDOWS APP"
+              Write-Host "USER: boosito"
+              Write-Host "PASS: Parinuxd123"
+              Write-Host "----------------------------------------"
+              Write-Host "⚠️ Si no ves la IP abajo, revisa el paso anterior 'LANZAR PLAYIT'"
+              Write-Host "donde dice 'tunnel-xxxx.playit.gg:XXXXX'"
           }
+          Write-Host "========================================"
 
-      - name: 5. LOOP
+      - name: 4. MANTENER VIVO
         shell: powershell
         run: |
-          while($true) { Start-Sleep 60 }
+          while($true) { 
+            Write-Host "Runner Activo - $(Get-Date)"
+            Start-Sleep -Seconds 60 
+          }
           
