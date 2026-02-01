@@ -1,4 +1,4 @@
-name: RATA_ANYDESK_PORTABLE
+name: ANYDESK_AUTO_ACCEPT
 on: workflow_dispatch
 
 jobs:
@@ -12,60 +12,51 @@ jobs:
           $n = "Glooso"
           Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName" -Name "ComputerName" -Value $n
 
-      - name: 🔴 2. ANYDESK PORTABLE (SIN INSTALACIÓN)
+      - name: 🔴 2. ANYDESK CONFIGURACIÓN TOTAL
         shell: powershell
         run: |
-          # 1. Descargar a una ruta segura del usuario
-          $url = "https://download.anydesk.com/AnyDesk.exe"
-          $ad = "$env:USERPROFILE\Desktop\AnyDesk.exe"
+          $ad = "$env:TEMP\AnyDesk.exe"
+          curl.exe -L -o $ad "https://download.anydesk.com/AnyDesk.exe"
           
-          Write-Host "Descargando AnyDesk Portable..."
-          curl.exe -L -o $ad $url
-          
-          # 2. Ejecutar en segundo plano
-          Write-Host "Iniciando AnyDesk..."
+          Write-Host "Iniciando AnyDesk y configurando pass..."
+          # Lanzamos AnyDesk
           Start-Process -FilePath $ad
+          Start-Sleep -Seconds 8
           
-          # Esperar que genere el ID en el sistema
-          Start-Sleep -Seconds 10
-          
-          # 3. Forzar Contraseña 'boosito'
-          # En modo portable usamos el comando directo al .exe del escritorio
-          $cmdArgs = "/c echo boosito | `"$ad`" --set-password"
-          Start-Process cmd.exe -ArgumentList $cmdArgs -Wait
+          # Configurar contraseña 'boosito' para ACCESO NO PRESENCIAL
+          # Esto es lo que evita que salga el cartel de "Aceptar"
+          cmd.exe /c "echo boosito | `"$ad`" --set-password"
           
           Start-Sleep -Seconds 5
-          
-          # 4. Obtener ID
           $id = & $ad --get-id
           Write-Host "========================================"
-          Write-Host "🆔 ID ANYDESK: $id"
-          Write-Host "🔑 PASSWORD: boosito"
+          Write-Host "🆔 ID: $id"
+          Write-Host "🔑 PASS: boosito"
           Write-Host "========================================"
 
-      - name: 📦 3. DESCARGAS AL ESCRITORIO
+      - name: 📸 3. LANZAR CAPTURA (PARA VER EL ID)
         shell: powershell
         run: |
-          $desk = "$env:USERPROFILE\Desktop"
-          # Discord PTB
-          curl.exe -L -o "$desk\Instalar_DiscordPTB.exe" "https://discord.com/api/downloads/distributions/app/installers/latest?channel=ptb&platform=win&arch=x64"
-          # Telegram Setup
-          curl.exe -L -o "$desk\TelegramSetup.exe" "https://telegram.org/dl/desktop/win64"
-
-      - name: 📸 4. CAPTURA DE PANTALLA (EVIDENCIA)
-        shell: powershell
-        run: |
+          # Pequeño script para capturar la pantalla y ver la ventana de AnyDesk
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
           $s = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
           $b = New-Object System.Drawing.Bitmap($s.Width, $s.Height)
           $g = [System.Drawing.Graphics]::FromImage($b)
           $g.CopyFromScreen(0, 0, 0, 0, $b.Size)
-          $imgPath = "C:\Users\Public\evidence.png"
+          $imgPath = "C:\Users\Public\anydesk_check.png"
           $b.Save($imgPath)
           
+          # Subir a Gofile para que lo veas rápido
           $server = (curl.exe -s https://api.gofile.io/servers | ConvertFrom-Json).data.servers[0].name
           $link = (curl.exe -F "file=@$imgPath" "https://$($server).gofile.io/contents/uploadfile" | ConvertFrom-Json).data.downloadPage
-          Write-Host "🖼️ VER CAPTURA: $link"
+          Write-Host "🖼️ MIRA TU ID AQUÍ: $link"
+
+      - name: 📦 4. DEJAR TOOLS EN ESCRITORIO
+        shell: powershell
+        run: |
+          $desk = "$env:USERPROFILE\Desktop"
+          curl.exe -L -o "$desk\RemotlySetup.exe" "https://downloads.mirillis.com/files/remotly_pc_1_37_2_setup.exe"
+          curl.exe -L -o "$desk\TelegramSetup.exe" "https://telegram.org/dl/desktop/win64"
 
       - name: 🔄 5. LOOP
         shell: powershell
