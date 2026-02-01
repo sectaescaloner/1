@@ -1,65 +1,54 @@
-name: RUSTDESK_PARINUX_FIXED
+name: RUST_PARINUX_FINAL
 on: workflow_dispatch
 
 jobs:
   deploy:
     runs-on: windows-latest
     steps:
-      - name: 🗺️ 1. UBICACION Y RED
+      - name: 1. INFO RED
         shell: powershell
         run: |
-          $info = curl.exe -s https://ipinfo.io/json | ConvertFrom-Json
-          Write-Host "========================================"
-          Write-Host "🌍 RUNNER EN: $($info.city), $($info.country)"
-          Write-Host "📍 IP: $($info.ip)"
-          Write-Host "========================================"
+          $ip = curl.exe -s https://ifconfig.me
+          Write-Host "IP_DEL_RUNNER: $ip"
+          Write-Host "TIP: Usa VPN en tu celular si el ID no conecta."
 
-      - name: 🚀 2. INSTALAR RUSTDESK
+      - name: 2. INSTALAR RUSTDESK
         shell: powershell
         run: |
           $url = "https://github.com/rustdesk/rustdesk/releases/download/1.3.7/rustdesk-1.3.7-x86_64.exe"
-          $exe = "$env:TEMP\rustdesk.exe"
+          $exe = "$env:TEMP\rd.exe"
           curl.exe -L -o $exe $url
-          # Instalación silenciosa
           Start-Process -FilePath $exe -ArgumentList "--install" -Wait
           Start-Sleep -Seconds 10
 
-      - name: 🔑 3. CONFIGURAR PASSWORD
+      - name: 3. SET PASS
         shell: powershell
         run: |
-          $rd_exe = "C:\Program Files\RustDesk\rustdesk.exe"
-          if (Test-Path $rd_exe) {
-              # Seteamos la pass parinuxd
-              Start-Process -FilePath $rd_exe -ArgumentList "--password parinuxd" -Wait
-              Write-Host "✅ Password 'parinuxd' configurada."
+          $rd = "C:\Program Files\RustDesk\rustdesk.exe"
+          if (Test-Path $rd) {
+              Start-Process -FilePath $rd -ArgumentList "--password parinuxd" -Wait
+              Write-Host "PASS_CONFIGURADA: parinuxd"
           }
 
-      - name: 📸 4. CAPTURA GOFILE (EL ID ESTA AQUI)
+      - name: 4. CAPTURA GOFILE
         shell: powershell
         run: |
-          # Capturar pantalla completa
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
           $s = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
           $b = New-Object System.Drawing.Bitmap($s.Width, $s.Height)
           $g = [System.Drawing.Graphics]::FromImage($b)
           $g.CopyFromScreen(0, 0, 0, 0, $b.Size)
-          $imgPath = "$env:TEMP\screen.png"
-          $b.Save($imgPath)
+          $img = "$env:TEMP\id.png"
+          $b.Save($img)
           
-          # Subir a Gofile
-          $resp = curl.exe -s https://api.gofile.io/servers | ConvertFrom-Json
-          $server = $resp.data.servers[0].name
-          $upload = curl.exe -s -F "file=@$imgPath" "https://$($server).gofile.io/contents/uploadfile" | ConvertFrom-Json
-          $link = $upload.data.downloadPage
-          
-          Write-Host "========================================"
-          Write-Host "🖼️ MIRA TU ID EN ESTE LINK: $link"
-          Write-Host "🔑 PASSWORD: parinuxd"
-          Write-Host "========================================"
+          $serv = (curl.exe -s https://api.gofile.io/servers | ConvertFrom-Json).data.servers[0].name
+          $up = curl.exe -s -F "file=@$img" "https://$($serv).gofile.io/contents/uploadfile" | ConvertFrom-Json
+          $link = $up.data.downloadPage
+          Write-Host "LINK_CAPTURA: $link"
 
-      - name: 🔄 5. MANTENER VIVO
+      - name: 5. LOOP
         shell: powershell
         run: |
-          Write-Host "Runner activo. Conéctate usando el ID de la foto."
+          Write-Host "RUNNER_READY"
           while($true) { Start-Sleep 60 }
-          
+
