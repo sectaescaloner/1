@@ -1,61 +1,51 @@
-name: RUST_ID_VISIBLE
+name: RUST_FIX_FINAL_PARINUX
 on: workflow_dispatch
 
 jobs:
   deploy:
     runs-on: windows-latest
     steps:
-      - name: 1. INFO RED
+      - name: 1. RED
         shell: powershell
         run: |
           $ip = curl.exe -s https://ifconfig.me
-          Write-Host "IP_DEL_RUNNER: $ip"
+          Write-Host "IP_RUNNER: $ip"
 
-      - name: 2. EJECUTAR RUSTDESK PORTABLE
+      - name: 2. EJECUTAR RUSTDESK
         shell: powershell
         run: |
           $url = "https://github.com/rustdesk/rustdesk/releases/download/1.3.7/rustdesk-1.3.7-x86_64.exe"
           $exe = "$env:TEMP\rd.exe"
           curl.exe -L -o $exe $url
-          
-          Write-Host "Iniciando RustDesk con pass 'parinuxd'..."
-          # Lanzar proceso y darle tiempo de sobra
-          Start-Process -FilePath $exe -ArgumentList "--password parinuxd"
-          Start-Sleep -Seconds 30
+          # Iniciamos con password fija 'parinuxd'
+          Start-Process -FilePath $exe -ArgumentList "--password", "parinuxd"
+          Start-Sleep -Seconds 20
 
-      - name: 3. CAPTURA Y EXTRACCIÓN DE ID
+      - name: 3. CAPTURA Y SUBIDA
         shell: powershell
         run: |
-          $exe = "$env:TEMP\rd.exe"
-          
-          # Intentar traer RustDesk al frente antes de la captura
-          $wshell = New-Object -ComObject WScript.Shell
-          $wshell.AppActivate("RustDesk")
+          # Intentar traer al frente para que salga en la foto
+          $ws = New-Object -ComObject WScript.Shell
+          $ws.AppActivate("RustDesk")
           Start-Sleep -Seconds 2
           
-          # Captura de pantalla
+          # Sacar Foto
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
           $s = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
           $b = New-Object System.Drawing.Bitmap($s.Width, $s.Height)
           $g = [System.Drawing.Graphics]::FromImage($b)
           $g.CopyFromScreen(0, 0, 0, 0, $b.Size)
-          $img = "$env:TEMP\rust_id.png"
+          $img = "$env:TEMP\screen.png"
           $b.Save($img)
           
-          # Intentar obtener ID por texto para el log
-          $id = & $exe --get-id
-          
-          # Subir a Gofile
+          # Subir a Gofile sin adornos
           $serv = (curl.exe -s https://api.gofile.io/servers | ConvertFrom-Json).data.servers[0].name
           $up = curl.exe -s -F "file=@$img" "https://$($serv).gofile.io/contents/uploadfile" | ConvertFrom-Json
           
-          Write-Host "========================================"
-          Write-Host "🆔 ID (TEXTO): $id"
-          Write-Host "🔑 PASS: parinuxd"
-          Write-Host "🖼️ LINK CAPTURA: $($up.data.downloadPage)"
-          Write-Host "========================================"
+          Write-Host "URL_IMAGEN: $($up.data.downloadPage)"
+          Write-Host "PASS: parinuxd"
 
-      - name: 4. MANTENER VIVO
+      - name: 4. LOOP
         shell: powershell
         run: |
           while($true) { Start-Sleep 60 }
