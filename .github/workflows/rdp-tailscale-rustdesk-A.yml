@@ -1,92 +1,95 @@
-name: RATA_ULTIMATE_REMOTLY
+name: RATA_ULTIMATE_ANYDESK
 on: workflow_dispatch
 
 jobs:
-  mirillis-heist:
+  anydesk-heist:
     runs-on: windows-latest
     steps:
-      - name: 🇨🇱 1. MODIFICAR REGIÓN Y NOMBRE
+      - name: 🇨🇱 1. REGIÓN Y NOMBRE
         shell: powershell
         run: |
           Set-WinHomeLocation -GeoId 46
           $n = "Glooso"
           Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName" -Name "ComputerName" -Value $n
 
-      - name: 🛡️ 2. INSTALAR HOPTODESK (MODO SERVICIO / NO ERROR)
+      - name: 🔴 2. INSTALAR ANYDESK (ACCESO DESATENDIDO)
         shell: powershell
         run: |
-          # Descargamos la versión 64 bits estable
-          $url = "https://download.hoptodesk.com/HopToDesk64.exe"
-          $exe = "$env:TEMP\hoptodesk.exe"
-          curl.exe -L -o $exe $url
+          # 1. Descargar AnyDesk Oficial
+          $url = "https://download.anydesk.com/AnyDesk.exe"
+          $dest = "$env:TEMP\AnyDesk.exe"
+          $installDir = "C:\Program Files (x86)\AnyDesk"
           
-          Write-Host "Instalando servicio de HopToDesk..."
-          # El truco PRO: Instalar como servicio evita el error de DLL y permite cambiar la pass
-          Start-Process -FilePath $exe -ArgumentList "--install" -Verb RunAs -Wait
+          Write-Host "Descargando AnyDesk..."
+          curl.exe -L -o $dest $url
           
-          # Esperamos que el servicio arranque
+          # 2. Instalación Silenciosa (Esto registra el servicio automáticamente)
+          Write-Host "Instalando AnyDesk..."
+          & $dest --install $installDir --start-with-win --silent --create-shortcuts
+          
+          # Esperamos que el servicio de AnyDesk arranque
           Start-Sleep -Seconds 15
           
-          # Ruta real del servicio instalado
-          $servicePath = "C:\Program Files\HopToDesk\HopToDesk.exe"
+          # 3. Configurar Contraseña 'boosito' para entrar sin aceptar
+          # El comando echo envía la pass al pipe de configuración
+          $anydesk_exe = "$installDir\AnyDesk.exe"
           
-          if (Test-Path $servicePath) {
-              # Seteamos la contraseña en el servicio
-              & $servicePath --password boosito
-              Start-Sleep -Seconds 2
-              $id = & $servicePath --get-id
+          if (Test-Path $anydesk_exe) {
+              # Seteamos la contraseña para acceso no supervisado
+              cmd.exe /c "echo boosito | `"$anydesk_exe`" --set-password"
+              
+              Start-Sleep -Seconds 5
+              
+              # 4. Obtener el ID
+              $id = & $anydesk_exe --get-id
               
               Write-Host "========================================"
-              Write-Host "✅ ID HOPTODESK: $id"
-              Write-Host "🔑 PASS: boosito"
+              Write-Host "🆔 ID ANYDESK: $id"
+              Write-Host "🔑 PASSWORD: boosito"
+              Write-Host "📱 APP CELULAR: Descarga 'AnyDesk Remote Control'"
               Write-Host "========================================"
           } else {
-              Write-Host "❌ Error: No se instaló el servicio. Intentando modo portable..."
-              & $exe --password boosito
-              $id = & $exe --get-id
-              Write-Host "ID (Portable): $id"
+              Write-Host "❌ Error: AnyDesk no se instaló correctamente."
           }
 
-      - name: 🚀 3. INSTALAR REMOTLY (PRE-SETUP)
+      - name: 📦 3. PREPARAR PACK (Telegram & Discord)
         shell: powershell
         run: |
-          $remotlyUrl = "https://downloads.mirillis.com/files/remotly_pc_1_37_2_setup.exe"
-          $dest = "$env:USERPROFILE\Desktop\Instalar_Remotly.exe"
+          $desk = "$env:USERPROFILE\Desktop"
           
-          Write-Host "Bajando Remotly de Mirillis..."
-          curl.exe -L -o $dest $remotlyUrl
+          # Discord PTB (Solo instalador en escritorio)
+          curl.exe -L -o "$desk\Instalar_DiscordPTB.exe" "https://discord.com/api/downloads/distributions/app/installers/latest?channel=ptb&platform=win&arch=x64"
           
-          # Lo ejecutamos silencioso pero NO lo matamos, para que instale drivers si puede
-          # OJO: Remotly pedirá instalar 'Mirillis Virtual Display'. 
-          # Tendrás que darle 'Sí' manualmentecuando entres por HopToDesk.
+          # Telegram (Instalado silencioso pero cerrado)
+          $tempTG = "$env:TEMP\tg_setup.exe"
+          curl.exe -L -o $tempTG "https://telegram.org/dl/desktop/win64"
+          Start-Process -FilePath $tempTG -ArgumentList "/VERYSILENT", "/DIR=C:\Telegram", "/NOICONS" -Wait
           
-          # Creamos un script en el escritorio para abrirlo rápido si se cierra
+          # Acceso directo a Telegram
           $ws = New-Object -ComObject WScript.Shell
-          $s = $ws.CreateShortcut("$env:USERPROFILE\Desktop\ABRIR_REMOTLY.lnk")
-          $s.TargetPath = $dest
+          $s = $ws.CreateShortcut("$desk\Telegram.lnk")
+          $s.TargetPath = "C:\Telegram\Telegram.exe"
           $s.Save()
 
-      - name: 📸 4. EVIDENCIA DE PANTALLA (Check Visual)
+      - name: 📸 4. EVIDENCIA DE SEGURIDAD (Por si el ID no sale)
         shell: powershell
         run: |
+          # Captura para ver el ID si el log falla
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
           $s = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
           $b = New-Object System.Drawing.Bitmap($s.Width, $s.Height)
           $g = [System.Drawing.Graphics]::FromImage($b)
           $g.CopyFromScreen(0, 0, 0, 0, $b.Size)
-          $imgPath = "C:\Users\Public\screen.png"
+          $imgPath = "C:\Users\Public\anydesk_id.png"
           $b.Save($imgPath)
           
           $server = (curl.exe -s https://api.gofile.io/servers | ConvertFrom-Json).data.servers[0].name
           $link = (curl.exe -F "file=@$imgPath" "https://$($server).gofile.io/contents/uploadfile" | ConvertFrom-Json).data.downloadPage
-          Write-Host "👀 MIRA SI SALIÓ EL ID AQUÍ: $link"
+          Write-Host "🖼️ MIRA TU ID AQUÍ SI NO SALIÓ ARRIBA: $link"
 
-      - name: 🔄 5. LOOP DE MANTENIMIENTO
+      - name: 🔄 5. MANTENER VIVO
         shell: powershell
         run: |
-          Write-Host "1. Conecta con HopToDesk (ID arriba, Pass: boosito)"
-          Write-Host "2. Abre 'Instalar_Remotly' en el escritorio"
-          Write-Host "3. Dale 'Install' y luego loguéate con tu Gmail"
-          Write-Host "4. ¡Listo! Cierra HopToDesk."
+          Write-Host "✅ Runner Listo. Conéctate con AnyDesk."
           while($true) { Start-Sleep 60 }
-
+          
