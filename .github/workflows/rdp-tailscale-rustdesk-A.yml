@@ -1,4 +1,4 @@
-name: RUST_PARINUX_FINAL
+name: RUST_PARINUX_PORTABLE
 on: workflow_dispatch
 
 jobs:
@@ -10,27 +10,23 @@ jobs:
         run: |
           $ip = curl.exe -s https://ifconfig.me
           Write-Host "IP_DEL_RUNNER: $ip"
-          Write-Host "TIP: Usa VPN en tu celular si el ID no conecta."
+          Write-Host "TIP: Pon tu VPN en USA si no conecta."
 
-      - name: 2. INSTALAR RUSTDESK
+      - name: 2. EJECUTAR RUSTDESK PORTABLE
         shell: powershell
         run: |
           $url = "https://github.com/rustdesk/rustdesk/releases/download/1.3.7/rustdesk-1.3.7-x86_64.exe"
           $exe = "$env:TEMP\rd.exe"
           curl.exe -L -o $exe $url
-          Start-Process -FilePath $exe -ArgumentList "--install" -Wait
-          Start-Sleep -Seconds 10
+          
+          Write-Host "Iniciando proceso portable..."
+          # Lanzamos sin '--install' para que no se cuelgue
+          Start-Process -FilePath $exe -ArgumentList "--password parinuxd"
+          
+          # Esperamos a que el proceso genere el ID
+          Start-Sleep -Seconds 15
 
-      - name: 3. SET PASS
-        shell: powershell
-        run: |
-          $rd = "C:\Program Files\RustDesk\rustdesk.exe"
-          if (Test-Path $rd) {
-              Start-Process -FilePath $rd -ArgumentList "--password parinuxd" -Wait
-              Write-Host "PASS_CONFIGURADA: parinuxd"
-          }
-
-      - name: 4. CAPTURA GOFILE
+      - name: 3. CAPTURA GOFILE (ID AQUÍ)
         shell: powershell
         run: |
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
@@ -45,10 +41,10 @@ jobs:
           $up = curl.exe -s -F "file=@$img" "https://$($serv).gofile.io/contents/uploadfile" | ConvertFrom-Json
           $link = $up.data.downloadPage
           Write-Host "LINK_CAPTURA: $link"
+          Write-Host "PASS: parinuxd"
 
-      - name: 5. LOOP
+      - name: 4. MANTENER VIVO
         shell: powershell
         run: |
-          Write-Host "RUNNER_READY"
           while($true) { Start-Sleep 60 }
-
+          
