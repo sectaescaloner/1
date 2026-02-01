@@ -1,11 +1,11 @@
-name: RDP_NGROK_POWER_FIX
+name: RDP_NGROK_FINAL_V3
 on: workflow_dispatch
 
 jobs:
   deploy:
     runs-on: windows-latest
     steps:
-      - name: 1. SETUP RDP
+      - name: 1. CONFIG RDP
         shell: powershell
         run: |
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
@@ -17,40 +17,35 @@ jobs:
         shell: powershell
         run: |
           choco install ngrok -y
-          ngrok authtoken 393CwGNqE4jpyhdAuvNewGtG58B_5roLoskHKD1jLw4CCigti
+          # Usamos la ruta completa del shim de choco para el token
+          & "C:\ProgramData\chocolatey\bin\ngrok.exe" authtoken 393CwGNqE4jpyhdAuvNewGtG58B_5roLoskHKD1jLw4CCigti
 
-      - name: 3. INICIAR TUNEL
+      - name: 3. INICIAR TUNEL Y CAPTURAR LOG
         shell: powershell
         run: |
-          Write-Host "Lanzando Ngrok..."
-          Start-Process -FilePath "ngrok" -ArgumentList "tcp", "3389"
-          # Esperamos lo suficiente para que la red sincronice
+          Write-Host "Iniciando tunel con log de depuracion..."
+          # Lanzamos con la ruta completa y volcamos errores a un archivo
+          Start-Process -FilePath "C:\ProgramData\chocolatey\bin\ngrok.exe" -ArgumentList "tcp", "3389", "--log", "stdout" -RedirectStandardOutput "ngrok.log"
           Start-Sleep -Seconds 30
 
-      - name: 4. DIRECCION FINAL (CON REINTENTO)
+      - name: 4. OBTENER DIRECCION O VER ERROR
         shell: powershell
         run: |
-          $maxRetries = 5
-          for ($i = 1; $i -le $maxRetries; $i++) {
-              try {
-                  $json = curl.exe -s http://localhost:4040/api/tunnels | ConvertFrom-Json
-                  if ($json.tunnels.Count -gt 0) {
-                      $url = $json.tunnels[0].public_url
-                      $clean = $url.Replace("tcp://", "")
-                      Write-Host "DIRECCION_RDP: $clean"
-                      Write-Host "USUARIO: boosito"
-                      Write-Host "CLAVE: Parinuxd123"
-                      return
-                  }
-              } catch {}
-              Write-Host "Esperando tunnel... Intento $i"
-              Start-Sleep -Seconds 5
+          $json = curl.exe -s http://localhost:4040/api/tunnels | ConvertFrom-Json
+          if ($json.tunnels.Count -gt 0) {
+              $url = $json.tunnels[0].public_url.Replace("tcp://", "")
+              Write-Host "========================================"
+              Write-Host "🔗 CONECTATE AQUI: $url"
+              Write-Host "👤 USER: boosito"
+              Write-Host "🔑 PASS: Parinuxd123"
+              Write-Host "========================================"
+          } else {
+              Write-Host "❌ ERROR: El tunel no inicio. Mostrando log de Ngrok:"
+              Get-Content "ngrok.log" # Esto nos dira el error real de Ngrok
           }
-          Write-Error "No se pudo obtener la URL de Ngrok tras varios intentos."
 
       - name: 5. LOOP
         shell: powershell
         run: |
-          Write-Host "RUNNER_LISTO"
           while($true) { Start-Sleep 60 }
           
