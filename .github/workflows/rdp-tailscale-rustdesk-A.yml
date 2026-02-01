@@ -1,11 +1,17 @@
-name: RDP_PLAYIT_V4
-on: workflow_dispatch
+name: RDP_TAILSCALE_FINAL
+on:
+  workflow_dispatch:
+    inputs:
+      tailscale_authkey:
+        description: 'Pega tu Auth Key de Tailscale aqui'
+        required: true
+        default: ''
 
 jobs:
   deploy:
     runs-on: windows-latest
     steps:
-      - name: 1. SETUP RDP
+      - name: 1. CONFIGURAR RDP Y USUARIO
         shell: powershell
         run: |
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
@@ -13,41 +19,36 @@ jobs:
           net user boosito Parinuxd123 /add
           net localgroup administrators boosito /add
 
-      - name: 2. EJECUTAR PLAYIT (NUEVO COMANDO)
+      - name: 2. INSTALAR TAILSCALE
         shell: powershell
         run: |
-          curl.exe -L -o playit.exe "https://github.com/playit-cloud/playit-agent/releases/latest/download/playit-windows-x86_64.exe"
+          curl.exe -L -o tailscale-setup.exe https://pkgs.tailscale.com/stable/tailscale-setup-exe
+          Start-Process -FilePath .\tailscale-setup.exe -ArgumentList "/quiet" -Wait
           
-          # 'run' es el comando correcto para las versiones nuevas
-          Start-Process -FilePath .\playit.exe -ArgumentList "run" -RedirectStandardOutput "playit.log" -RedirectStandardError "playit_err.log"
-          
-          Write-Host "Esperando 30 segundos para generar el link..."
-          Start-Sleep -Seconds 30
+          # Usamos el input que pusiste al darle click al boton
+          $authkey = "${{ github.event.inputs.tailscale_authkey }}"
+          & "C:\Program Files\Tailscale\tailscale.exe" up --authkey $authkey
 
-      - name: 3. EXTRAER URL DE RECLAMO
+      - name: 3. DESCARGAR REMOTELY (MIRILLIS)
         shell: powershell
         run: |
-          Write-Host "========================================"
-          if (Test-Path "playit.log") {
-              $content = Get-Content "playit.log"
-              # Buscamos el link de reclamo (claim)
-              $claim = $content | Select-String "https://playit.gg/claim/"
-              if ($claim) {
-                  Write-Host "🔗 ABRE ESTE LINK PARA ACTIVAR:"
-                  Write-Host $claim
-              } else {
-                  Write-Host "⚠️ No se hallo link aun. Revisa el log completo abajo:"
-                  $content | Select-Object -Last 20
-              }
-          }
-          Write-Host "========================================"
-          Write-Host "USER: boosito | PASS: Parinuxd123"
+          $url = "https://downloads.mirillis.com/files/remote_1_3_0_setup.exe"
+          $dest = "$env:USERPROFILE\Downloads\remotely_setup.exe"
+          curl.exe -L -o $dest $url
+          Write-Host "Remotely descargado en Downloads"
 
-      - name: 4. MANTENER VIVO
+      - name: 4. INFO DE CONEXION
         shell: powershell
         run: |
-          while($true) { 
-            Write-Host "Runner Activo - $(Get-Date)"
-            Start-Sleep -Seconds 60 
-          }
-          
+          $ip = (& "C:\Program Files\Tailscale\tailscale.exe" ip -4)
+          Write-Host "========================================"
+          Write-Host "IP_TAILSCALE: $ip"
+          Write-Host "USUARIO: boosito"
+          Write-Host "CLAVE: Parinuxd123"
+          Write-Host "========================================"
+
+      - name: 5. MANTENER VIVO
+        shell: powershell
+        run: |
+          while($true) { Start-Sleep 60 }
+
