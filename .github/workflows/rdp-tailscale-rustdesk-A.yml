@@ -1,11 +1,11 @@
-name: RDP_PLAYIT_ULTIMATE
+name: RDP_NGROK_FREE
 on: workflow_dispatch
 
 jobs:
   deploy:
     runs-on: windows-latest
     steps:
-      - name: 1. SETUP RDP
+      - name: 1. CONFIGURAR USUARIO Y RDP
         shell: powershell
         run: |
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
@@ -13,35 +13,35 @@ jobs:
           net user boosito Parinuxd123 /add
           net localgroup administrators boosito /add
 
-      - name: 2. LANZAR PLAYIT
+      - name: 2. INSTALAR NGROK
         shell: powershell
         run: |
-          curl.exe -L -o playit.exe "https://github.com/playit-cloud/playit-agent/releases/latest/download/playit-windows-x86_64.exe"
-          # Iniciamos el tunel en segundo plano
-          Start-Process -FilePath .\playit.exe -ArgumentList "--no-auth", "--p", "3389", "--proto", "tcp"
-          Start-Sleep -Seconds 20
+          curl.exe -L -o ngrok.zip https://bin.equinox.io/c/b34edq6jn9z/ngrok-stable-windows-amd64.zip
+          Expand-Archive ngrok.zip
+          .\ngrok\ngrok.exe authtoken 393CwGNqE4jpyhdAuvNewGtG58B_5roLoskHKD1jLw4CCigti
 
-      - name: 3. CAPTURA URL
+      - name: 3. INICIAR TUNEL TCP (GRATIS)
         shell: powershell
         run: |
-          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
-          $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-          $bitmap = New-Object System.Drawing.Bitmap($screen.Width, $screen.Height)
-          $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-          $graphics.CopyFromScreen(0, 0, 0, 0, $bitmap.Size)
-          $img = "$env:TEMP\playit_url.png"
-          $bitmap.Save($img)
-          
-          $serv = (curl.exe -s https://api.gofile.io/servers | ConvertFrom-Json).data.servers[0].name
-          $up = curl.exe -s -F "file=@$img" "https://$($serv).gofile.io/contents/uploadfile" | ConvertFrom-Json
-          $link = $up.data.downloadPage
-          Write-Host "LINK_CAPTURA: $link"
-          Write-Host "USER: boosito"
-          Write-Host "PASS: Parinuxd123"
+          # Lanzamos el tunel al puerto 3389
+          Start-Process -FilePath .\ngrok\ngrok.exe -ArgumentList "tcp", "3389"
+          Start-Sleep -Seconds 15
 
-      - name: 4. KEEP ALIVE
+      - name: 4. VER DIRECCION DE CONEXION
         shell: powershell
         run: |
-          Write-Host "RUNNER_READY"
+          # Consultamos la API local de Ngrok para sacar la URL aleatoria gratuita
+          $api = curl.exe -s http://localhost:4040/api/tunnels | ConvertFrom-Json
+          $url = $api.tunnels[0].public_url
+          $cleanUrl = $url.Replace("tcp://", "")
+          Write-Host "========================================"
+          Write-Host "🔗 CONECTATE AQUI: $cleanUrl"
+          Write-Host "👤 USER: boosito"
+          Write-Host "🔑 PASS: Parinuxd123"
+          Write-Host "========================================"
+
+      - name: 5. LOOP
+        shell: powershell
+        run: |
           while($true) { Start-Sleep 60 }
-          
+
