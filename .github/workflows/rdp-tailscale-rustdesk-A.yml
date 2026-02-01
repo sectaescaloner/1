@@ -1,11 +1,11 @@
-name: RDP_NGROK_FREE
+name: RDP_NGROK_FINAL
 on: workflow_dispatch
 
 jobs:
   deploy:
     runs-on: windows-latest
     steps:
-      - name: 1. CONFIGURAR USUARIO Y RDP
+      - name: 1. SETUP RDP
         shell: powershell
         run: |
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
@@ -13,35 +13,36 @@ jobs:
           net user boosito Parinuxd123 /add
           net localgroup administrators boosito /add
 
-      - name: 2. INSTALAR NGROK
+      - name: 2. INSTALAR NGROK (VIA CHOCO)
         shell: powershell
         run: |
-          curl.exe -L -o ngrok.zip https://bin.equinox.io/c/b34edq6jn9z/ngrok-stable-windows-amd64.zip
-          Expand-Archive ngrok.zip
-          .\ngrok\ngrok.exe authtoken 393CwGNqE4jpyhdAuvNewGtG58B_5roLoskHKD1jLw4CCigti
+          # Instalamos ngrok usando el gestor de paquetes de Windows
+          choco install ngrok -y
+          
+          # Configuramos tu token (El que me pasaste antes)
+          ngrok authtoken 393CwGNqE4jpyhdAuvNewGtG58B_5roLoskHKD1jLw4CCigti
 
-      - name: 3. INICIAR TUNEL TCP (GRATIS)
+      - name: 3. INICIAR TUNEL TCP
         shell: powershell
         run: |
-          # Lanzamos el tunel al puerto 3389
-          Start-Process -FilePath .\ngrok\ngrok.exe -ArgumentList "tcp", "3389"
-          Start-Sleep -Seconds 15
+          # Lanzar el túnel al puerto 3389
+          Start-Process -FilePath "ngrok" -ArgumentList "tcp", "3389"
+          Start-Sleep -Seconds 20
 
-      - name: 4. VER DIRECCION DE CONEXION
+      - name: 4. DIRECCION DE CONEXION
         shell: powershell
         run: |
-          # Consultamos la API local de Ngrok para sacar la URL aleatoria gratuita
           $api = curl.exe -s http://localhost:4040/api/tunnels | ConvertFrom-Json
           $url = $api.tunnels[0].public_url
           $cleanUrl = $url.Replace("tcp://", "")
           Write-Host "========================================"
-          Write-Host "🔗 CONECTATE AQUI: $cleanUrl"
+          Write-Host "🔗 IP PARA RDP: $cleanUrl"
           Write-Host "👤 USER: boosito"
           Write-Host "🔑 PASS: Parinuxd123"
           Write-Host "========================================"
 
-      - name: 5. LOOP
+      - name: 5. MANTENER VIVO
         shell: powershell
         run: |
           while($true) { Start-Sleep 60 }
-
+          
