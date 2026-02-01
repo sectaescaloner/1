@@ -1,61 +1,74 @@
-name: ANYDESK_SCREEN_HEIST
+name: RUSTDESK_PARINUX_ULTIMATE
 on: workflow_dispatch
 
 jobs:
-  anydesk-heist:
+  deploy-remote:
     runs-on: windows-latest
     steps:
-      - name: 🇨🇱 1. REGIÓN
+      - name: 🗺️ 1. LOCALIZAR RUNNER (PARA TU VPN)
         shell: powershell
         run: |
-          Set-WinHomeLocation -GeoId 46
-          $n = "Glooso"
-          Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName" -Name "ComputerName" -Value $n
+          $info = curl.exe -s https://ipinfo.io/json | ConvertFrom-Json
+          Write-Host "========================================"
+          Write-Host "🌍 UBICACIÓN DEL RUNNER: $($info.city), $($info.country)"
+          Write-Host "📍 IP PÚBLICA: $($info.ip)"
+          Write-Host "🌐 PROVEEDOR: $($info.org)"
+          Write-Host "========================================"
+          Write-Host "👉 TIP: Usa una VPN en tu celular conectada a $($info.country) para evitar bloqueos."
+          Write-Host "========================================"
 
-      - name: 🔴 2. LANZAR ANYDESK Y FORZAR CONFIG
+      - name: 🛡️ 2. PREPARAR SISTEMA
         shell: powershell
         run: |
-          $ad = "$env:TEMP\AnyDesk.exe"
-          curl.exe -L -o $ad "https://download.anydesk.com/AnyDesk.exe"
-          
-          # Lanzar AnyDesk
-          Start-Process -FilePath $ad
-          Start-Sleep -Seconds 12
-          
-          # Intentar inyectar contraseña 'boosito'
-          # Usamos cmd directo para asegurar que el pipe de la contraseña entre
-          cmd.exe /c "echo boosito | `"$ad`" --set-password"
-          
-          Write-Host "AnyDesk lanzado. Si el ID no sale abajo, búscalo en la CAPTURA DE PANTALLA."
+          Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled False
+          Set-WinHomeLocation -GeoId 46 
 
-      - name: 📸 3. CAPTURA DE PANTALLA (BUSCA EL ID AQUÍ)
+      - name: 🚀 3. INSTALAR RUSTDESK (PASS: parinuxd)
         shell: powershell
         run: |
+          $url = "https://github.com/rustdesk/rustdesk/releases/download/1.3.7/rustdesk-1.3.7-x86_64.exe"
+          $exe = "$env:TEMP\rustdesk.exe"
+          curl.exe -L -o $exe $url
+          
+          Write-Host "Instalando RustDesk como servicio..."
+          Start-Process -FilePath $exe -ArgumentList "--install" -Wait
+          
+          Start-Sleep -Seconds 10
+          
+          # Forzar contraseña fija 'parinuxd'
+          try {
+              & "C:\Program Files\RustDesk\rustdesk.exe" --password parinuxd
+              Write-Host "✅ Contraseña 'parinuxd' configurada correctamente."
+          } catch {
+              Write-Host "⚠️ Error al setear pass, intentando método alternativo..."
+              cmd.exe /c "echo parinuxd | `"C:\Program Files\RustDesk\rustdesk.exe`" --password parinuxd"
+          }
+
+      - name: 🆔 4. OBTENER ID Y CAPTURA
+        shell: powershell
+        run: |
+          $id = & "C:\Program Files\RustDesk\rustdesk.exe" --get-id
+          Write-Host "========================================"
+          Write-Host "🆔 TU ID RUSTDESK: $id"
+          Write-Host "🔑 CONTRASEÑA: parinuxd"
+          Write-Host "========================================"
+          
+          # Captura de pantalla por si el ID no sale en consola
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
-          Start-Sleep -Seconds 5
           $s = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
           $b = New-Object System.Drawing.Bitmap($s.Width, $s.Height)
           $g = [System.Drawing.Graphics]::FromImage($b)
           $g.CopyFromScreen(0, 0, 0, 0, $b.Size)
-          $imgPath = "C:\Users\Public\anydesk_id.png"
+          $imgPath = "C:\Users\Public\rust_final.png"
           $b.Save($imgPath)
           
           $server = (curl.exe -s https://api.gofile.io/servers | ConvertFrom-Json).data.servers[0].name
           $link = (curl.exe -F "file=@$imgPath" "https://$($server).gofile.io/contents/uploadfile" | ConvertFrom-Json).data.downloadPage
-          Write-Host "========================================"
-          Write-Host "🖼️ MIRA TU ID EN ESTA IMAGEN: $link"
-          Write-Host "🔑 CONTRASEÑA: boosito"
-          Write-Host "========================================"
+          Write-Host "🖼️ VER PANTALLA Y CONFIRMAR ID: $link"
 
-      - name: 📦 4. TOOLS EN ESCRITORIO
+      - name: 🔄 5. MANTENER CONEXIÓN
         shell: powershell
         run: |
-          $desk = "$env:USERPROFILE\Desktop"
-          curl.exe -L -o "$desk\RemotlySetup.exe" "https://downloads.mirillis.com/files/remotly_pc_1_37_2_setup.exe"
-          curl.exe -L -o "$desk\TelegramSetup.exe" "https://telegram.org/dl/desktop/win64"
-
-      - name: 🔄 5. LOOP
-        shell: powershell
-        run: |
+          Write-Host "🚀 Todo listo. Conéctate ahora."
           while($true) { Start-Sleep 60 }
-          
+
