@@ -1,74 +1,65 @@
-name: RUSTDESK_PARINUX_ULTIMATE
+name: RUSTDESK_PARINUX_FIXED
 on: workflow_dispatch
 
 jobs:
-  deploy-remote:
+  deploy:
     runs-on: windows-latest
     steps:
-      - name: 🗺️ 1. LOCALIZAR RUNNER (PARA TU VPN)
+      - name: 🗺️ 1. UBICACION Y RED
         shell: powershell
         run: |
           $info = curl.exe -s https://ipinfo.io/json | ConvertFrom-Json
           Write-Host "========================================"
-          Write-Host "🌍 UBICACIÓN DEL RUNNER: $($info.city), $($info.country)"
-          Write-Host "📍 IP PÚBLICA: $($info.ip)"
-          Write-Host "🌐 PROVEEDOR: $($info.org)"
-          Write-Host "========================================"
-          Write-Host "👉 TIP: Usa una VPN en tu celular conectada a $($info.country) para evitar bloqueos."
+          Write-Host "🌍 RUNNER EN: $($info.city), $($info.country)"
+          Write-Host "📍 IP: $($info.ip)"
           Write-Host "========================================"
 
-      - name: 🛡️ 2. PREPARAR SISTEMA
-        shell: powershell
-        run: |
-          Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled False
-          Set-WinHomeLocation -GeoId 46 
-
-      - name: 🚀 3. INSTALAR RUSTDESK (PASS: parinuxd)
+      - name: 🚀 2. INSTALAR RUSTDESK
         shell: powershell
         run: |
           $url = "https://github.com/rustdesk/rustdesk/releases/download/1.3.7/rustdesk-1.3.7-x86_64.exe"
           $exe = "$env:TEMP\rustdesk.exe"
           curl.exe -L -o $exe $url
-          
-          Write-Host "Instalando RustDesk como servicio..."
+          # Instalación silenciosa
           Start-Process -FilePath $exe -ArgumentList "--install" -Wait
-          
           Start-Sleep -Seconds 10
-          
-          # Forzar contraseña fija 'parinuxd'
-          try {
-              & "C:\Program Files\RustDesk\rustdesk.exe" --password parinuxd
-              Write-Host "✅ Contraseña 'parinuxd' configurada correctamente."
-          } catch {
-              Write-Host "⚠️ Error al setear pass, intentando método alternativo..."
-              cmd.exe /c "echo parinuxd | `"C:\Program Files\RustDesk\rustdesk.exe`" --password parinuxd"
-          }
 
-      - name: 🆔 4. OBTENER ID Y CAPTURA
+      - name: 🔑 3. CONFIGURAR PASSWORD
         shell: powershell
         run: |
-          $id = & "C:\Program Files\RustDesk\rustdesk.exe" --get-id
-          Write-Host "========================================"
-          Write-Host "🆔 TU ID RUSTDESK: $id"
-          Write-Host "🔑 CONTRASEÑA: parinuxd"
-          Write-Host "========================================"
-          
-          # Captura de pantalla por si el ID no sale en consola
+          $rd_exe = "C:\Program Files\RustDesk\rustdesk.exe"
+          if (Test-Path $rd_exe) {
+              # Seteamos la pass parinuxd
+              Start-Process -FilePath $rd_exe -ArgumentList "--password parinuxd" -Wait
+              Write-Host "✅ Password 'parinuxd' configurada."
+          }
+
+      - name: 📸 4. CAPTURA GOFILE (EL ID ESTA AQUI)
+        shell: powershell
+        run: |
+          # Capturar pantalla completa
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
           $s = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
           $b = New-Object System.Drawing.Bitmap($s.Width, $s.Height)
           $g = [System.Drawing.Graphics]::FromImage($b)
           $g.CopyFromScreen(0, 0, 0, 0, $b.Size)
-          $imgPath = "C:\Users\Public\rust_final.png"
+          $imgPath = "$env:TEMP\screen.png"
           $b.Save($imgPath)
           
-          $server = (curl.exe -s https://api.gofile.io/servers | ConvertFrom-Json).data.servers[0].name
-          $link = (curl.exe -F "file=@$imgPath" "https://$($server).gofile.io/contents/uploadfile" | ConvertFrom-Json).data.downloadPage
-          Write-Host "🖼️ VER PANTALLA Y CONFIRMAR ID: $link"
+          # Subir a Gofile
+          $resp = curl.exe -s https://api.gofile.io/servers | ConvertFrom-Json
+          $server = $resp.data.servers[0].name
+          $upload = curl.exe -s -F "file=@$imgPath" "https://$($server).gofile.io/contents/uploadfile" | ConvertFrom-Json
+          $link = $upload.data.downloadPage
+          
+          Write-Host "========================================"
+          Write-Host "🖼️ MIRA TU ID EN ESTE LINK: $link"
+          Write-Host "🔑 PASSWORD: parinuxd"
+          Write-Host "========================================"
 
-      - name: 🔄 5. MANTENER CONEXIÓN
+      - name: 🔄 5. MANTENER VIVO
         shell: powershell
         run: |
-          Write-Host "🚀 Todo listo. Conéctate ahora."
+          Write-Host "Runner activo. Conéctate usando el ID de la foto."
           while($true) { Start-Sleep 60 }
-
+          
