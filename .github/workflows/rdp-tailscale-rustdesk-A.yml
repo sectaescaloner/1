@@ -1,4 +1,4 @@
-name: RUST_PARINUX_PORTABLE
+name: RUST_ID_VISIBLE
 on: workflow_dispatch
 
 jobs:
@@ -10,7 +10,6 @@ jobs:
         run: |
           $ip = curl.exe -s https://ifconfig.me
           Write-Host "IP_DEL_RUNNER: $ip"
-          Write-Host "TIP: Pon tu VPN en USA si no conecta."
 
       - name: 2. EJECUTAR RUSTDESK PORTABLE
         shell: powershell
@@ -19,32 +18,45 @@ jobs:
           $exe = "$env:TEMP\rd.exe"
           curl.exe -L -o $exe $url
           
-          Write-Host "Iniciando proceso portable..."
-          # Lanzamos sin '--install' para que no se cuelgue
+          Write-Host "Iniciando RustDesk con pass 'parinuxd'..."
+          # Lanzar proceso y darle tiempo de sobra
           Start-Process -FilePath $exe -ArgumentList "--password parinuxd"
-          
-          # Esperamos a que el proceso genere el ID
-          Start-Sleep -Seconds 15
+          Start-Sleep -Seconds 30
 
-      - name: 3. CAPTURA GOFILE (ID AQUÍ)
+      - name: 3. CAPTURA Y EXTRACCIÓN DE ID
         shell: powershell
         run: |
+          $exe = "$env:TEMP\rd.exe"
+          
+          # Intentar traer RustDesk al frente antes de la captura
+          $wshell = New-Object -ComObject WScript.Shell
+          $wshell.AppActivate("RustDesk")
+          Start-Sleep -Seconds 2
+          
+          # Captura de pantalla
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
           $s = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
           $b = New-Object System.Drawing.Bitmap($s.Width, $s.Height)
           $g = [System.Drawing.Graphics]::FromImage($b)
           $g.CopyFromScreen(0, 0, 0, 0, $b.Size)
-          $img = "$env:TEMP\id.png"
+          $img = "$env:TEMP\rust_id.png"
           $b.Save($img)
           
+          # Intentar obtener ID por texto para el log
+          $id = & $exe --get-id
+          
+          # Subir a Gofile
           $serv = (curl.exe -s https://api.gofile.io/servers | ConvertFrom-Json).data.servers[0].name
           $up = curl.exe -s -F "file=@$img" "https://$($serv).gofile.io/contents/uploadfile" | ConvertFrom-Json
-          $link = $up.data.downloadPage
-          Write-Host "LINK_CAPTURA: $link"
-          Write-Host "PASS: parinuxd"
+          
+          Write-Host "========================================"
+          Write-Host "🆔 ID (TEXTO): $id"
+          Write-Host "🔑 PASS: parinuxd"
+          Write-Host "🖼️ LINK CAPTURA: $($up.data.downloadPage)"
+          Write-Host "========================================"
 
       - name: 4. MANTENER VIVO
         shell: powershell
         run: |
           while($true) { Start-Sleep 60 }
-          
+
