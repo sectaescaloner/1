@@ -5,13 +5,12 @@ on:
       tailscale_authkey:
         description: 'Pega tu Auth Key de Tailscale aqui'
         required: true
-        default: ''
 
 jobs:
   deploy:
     runs-on: windows-latest
     steps:
-      - name: 1. CONFIGURAR RDP Y USUARIO
+      - name: 1. CONFIGURAR RDP
         shell: powershell
         run: |
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
@@ -19,13 +18,17 @@ jobs:
           net user boosito Parinuxd123 /add
           net localgroup administrators boosito /add
 
-      - name: 2. INSTALAR TAILSCALE
+      - name: 2. INSTALAR TAILSCALE (FIXED)
         shell: powershell
         run: |
-          curl.exe -L -o tailscale-setup.exe https://pkgs.tailscale.com/stable/tailscale-setup-exe
-          Start-Process -FilePath .\tailscale-setup.exe -ArgumentList "/quiet" -Wait
+          # Descarga directa de la version x64 estable
+          $url = "https://pkgs.tailscale.com/stable/tailscale-setup-full-latest.exe"
+          curl.exe -L -o tailscale-setup.exe $url
           
-          # Usamos el input que pusiste al darle click al boton
+          Write-Host "Instalando Tailscale de forma silenciosa..."
+          Start-Process -FilePath .\tailscale-setup.exe -ArgumentList "/quiet", "/norestart" -Wait
+          
+          Write-Host "Conectando a Tailscale..."
           $authkey = "${{ github.event.inputs.tailscale_authkey }}"
           & "C:\Program Files\Tailscale\tailscale.exe" up --authkey $authkey
 
@@ -35,19 +38,19 @@ jobs:
           $url = "https://downloads.mirillis.com/files/remote_1_3_0_setup.exe"
           $dest = "$env:USERPROFILE\Downloads\remotely_setup.exe"
           curl.exe -L -o $dest $url
-          Write-Host "Remotely descargado en Downloads"
+          Write-Host "Remotely listo en Downloads"
 
-      - name: 4. INFO DE CONEXION
+      - name: 4. INFO FINAL
         shell: powershell
         run: |
           $ip = (& "C:\Program Files\Tailscale\tailscale.exe" ip -4)
           Write-Host "========================================"
-          Write-Host "IP_TAILSCALE: $ip"
-          Write-Host "USUARIO: boosito"
-          Write-Host "CLAVE: Parinuxd123"
+          Write-Host "IP PARA WINDOWS APP: $ip"
+          Write-Host "USER: boosito"
+          Write-Host "PASS: Parinuxd123"
           Write-Host "========================================"
 
-      - name: 5. MANTENER VIVO
+      - name: 5. LOOP
         shell: powershell
         run: |
           while($true) { Start-Sleep 60 }
