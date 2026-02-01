@@ -1,4 +1,4 @@
-name: RDP_NGROK_FINAL
+name: RDP_NGROK_CLEAN
 on: workflow_dispatch
 
 jobs:
@@ -13,36 +13,33 @@ jobs:
           net user boosito Parinuxd123 /add
           net localgroup administrators boosito /add
 
-      - name: 2. INSTALAR NGROK (VIA CHOCO)
+      - name: 2. INSTALAR NGROK
         shell: powershell
         run: |
-          # Instalamos ngrok usando el gestor de paquetes de Windows
           choco install ngrok -y
-          
-          # Configuramos tu token (El que me pasaste antes)
           ngrok authtoken 393CwGNqE4jpyhdAuvNewGtG58B_5roLoskHKD1jLw4CCigti
 
-      - name: 3. INICIAR TUNEL TCP
+      - name: 3. INICIAR TUNEL
         shell: powershell
         run: |
-          # Lanzar el túnel al puerto 3389
+          # Iniciamos el tunel en segundo plano
           Start-Process -FilePath "ngrok" -ArgumentList "tcp", "3389"
           Start-Sleep -Seconds 20
 
-      - name: 4. DIRECCION DE CONEXION
+      - name: 4. DIRECCION FINAL
         shell: powershell
         run: |
-          $api = curl.exe -s http://localhost:4040/api/tunnels | ConvertFrom-Json
-          $url = $api.tunnels[0].public_url
-          $cleanUrl = $url.Replace("tcp://", "")
-          Write-Host "========================================"
-          Write-Host "🔗 IP PARA RDP: $cleanUrl"
-          Write-Host "👤 USER: boosito"
-          Write-Host "🔑 PASS: Parinuxd123"
-          Write-Host "========================================"
+          # Consultar la API local de ngrok
+          $json = curl.exe -s http://localhost:4040/api/tunnels | ConvertFrom-Json
+          $url = $json.tunnels[0].public_url
+          $clean = $url.Replace("tcp://", "")
+          Write-Host "DIRECCION_RDP: $clean"
+          Write-Host "USUARIO: boosito"
+          Write-Host "CLAVE: Parinuxd123"
 
-      - name: 5. MANTENER VIVO
+      - name: 5. LOOP
         shell: powershell
         run: |
+          Write-Host "CONECTATE YA"
           while($true) { Start-Sleep 60 }
           
