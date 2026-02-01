@@ -1,4 +1,4 @@
-name: RDP_PLAYIT_FINAL_TEXTO
+name: RDP_PLAYIT_IP_LOG
 on: workflow_dispatch
 
 jobs:
@@ -13,42 +13,33 @@ jobs:
           net user boosito Parinuxd123 /add
           net localgroup administrators boosito /add
 
-      - name: 2. INSTALAR Y CONFIGURAR PLAYIT
+      - name: 2. EJECUTAR TUNEL Y EXTRAER IP
         shell: powershell
         run: |
+          # Descargar Playit
           curl.exe -L -o playit.exe "https://github.com/playit-cloud/playit-agent/releases/latest/download/playit-windows-x86_64.exe"
           
-          Write-Host "Generando túnel TCP..."
-          # Lanzamos playit para que cree el túnel al puerto 3389
-          Start-Process -FilePath .\playit.exe -ArgumentList "--no-auth", "--p", "3389", "--proto", "tcp"
-          Start-Sleep -Seconds 20
-
-      - name: 3. EXTRAER DIRECCIÓN (SIN FOTOS)
-        shell: powershell
-        run: |
-          # Playit guarda la info en un log o podemos verla en la API local
-          # Para no fallar, vamos a intentar que aparezca en el log de salida
-          Write-Host "========================================"
-          Write-Host "BUSCANDO TU DIRECCIÓN DE CONEXIÓN..."
+          # Lanzar playit y volcar TODO el texto a un archivo de log
+          Start-Process -FilePath .\playit.exe -ArgumentList "--no-auth", "--p", "3389", "--proto", "tcp" -RedirectStandardOutput "playit.log"
           
-          # Intentamos sacar la info directamente del proceso
-          $check = Get-Process playit -ErrorAction SilentlyContinue
-          if ($check) {
-              Write-Host "✅ Playit está corriendo."
-              Write-Host "CONÉCTATE USANDO LA APP WINDOWS APP"
-              Write-Host "USER: boosito"
-              Write-Host "PASS: Parinuxd123"
-              Write-Host "----------------------------------------"
-              Write-Host "⚠️ Si no ves la IP abajo, revisa el paso anterior 'LANZAR PLAYIT'"
-              Write-Host "donde dice 'tunnel-xxxx.playit.gg:XXXXX'"
-          }
-          Write-Host "========================================"
+          Write-Host "Esperando a que Playit genere la direccion..."
+          Start-Sleep -Seconds 30
+          
+          # Leer el log y buscar la linea del tunel o del reclamo
+          $log = Get-Content "playit.log"
+          $log | Select-String "tunnel" | ForEach-Object { Write-Host "DIRECCION ENCONTRADA: $($_.ToString())" }
+          $log | Select-String "claim" | ForEach-Object { Write-Host "URL DE RECLAMO: $($_.ToString())" }
+          
+          Write-Host "----------------------------------------"
+          Write-Host "USER: boosito"
+          Write-Host "PASS: Parinuxd123"
+          Write-Host "----------------------------------------"
 
-      - name: 4. MANTENER VIVO
+      - name: 3. MANTENER VIVO
         shell: powershell
         run: |
           while($true) { 
             Write-Host "Runner Activo - $(Get-Date)"
             Start-Sleep -Seconds 60 
           }
-          
+
