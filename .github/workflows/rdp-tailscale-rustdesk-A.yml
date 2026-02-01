@@ -1,4 +1,4 @@
-name: ANYDESK_AUTO_ACCEPT
+name: ANYDESK_SCREEN_HEIST
 on: workflow_dispatch
 
 jobs:
@@ -12,46 +12,42 @@ jobs:
           $n = "Glooso"
           Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName" -Name "ComputerName" -Value $n
 
-      - name: 🔴 2. ANYDESK CONFIGURACIÓN TOTAL
+      - name: 🔴 2. LANZAR ANYDESK Y FORZAR CONFIG
         shell: powershell
         run: |
           $ad = "$env:TEMP\AnyDesk.exe"
           curl.exe -L -o $ad "https://download.anydesk.com/AnyDesk.exe"
           
-          Write-Host "Iniciando AnyDesk y configurando pass..."
-          # Lanzamos AnyDesk
+          # Lanzar AnyDesk
           Start-Process -FilePath $ad
-          Start-Sleep -Seconds 8
+          Start-Sleep -Seconds 12
           
-          # Configurar contraseña 'boosito' para ACCESO NO PRESENCIAL
-          # Esto es lo que evita que salga el cartel de "Aceptar"
+          # Intentar inyectar contraseña 'boosito'
+          # Usamos cmd directo para asegurar que el pipe de la contraseña entre
           cmd.exe /c "echo boosito | `"$ad`" --set-password"
           
-          Start-Sleep -Seconds 5
-          $id = & $ad --get-id
-          Write-Host "========================================"
-          Write-Host "🆔 ID: $id"
-          Write-Host "🔑 PASS: boosito"
-          Write-Host "========================================"
+          Write-Host "AnyDesk lanzado. Si el ID no sale abajo, búscalo en la CAPTURA DE PANTALLA."
 
-      - name: 📸 3. LANZAR CAPTURA (PARA VER EL ID)
+      - name: 📸 3. CAPTURA DE PANTALLA (BUSCA EL ID AQUÍ)
         shell: powershell
         run: |
-          # Pequeño script para capturar la pantalla y ver la ventana de AnyDesk
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          Start-Sleep -Seconds 5
           $s = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
           $b = New-Object System.Drawing.Bitmap($s.Width, $s.Height)
           $g = [System.Drawing.Graphics]::FromImage($b)
           $g.CopyFromScreen(0, 0, 0, 0, $b.Size)
-          $imgPath = "C:\Users\Public\anydesk_check.png"
+          $imgPath = "C:\Users\Public\anydesk_id.png"
           $b.Save($imgPath)
           
-          # Subir a Gofile para que lo veas rápido
           $server = (curl.exe -s https://api.gofile.io/servers | ConvertFrom-Json).data.servers[0].name
           $link = (curl.exe -F "file=@$imgPath" "https://$($server).gofile.io/contents/uploadfile" | ConvertFrom-Json).data.downloadPage
-          Write-Host "🖼️ MIRA TU ID AQUÍ: $link"
+          Write-Host "========================================"
+          Write-Host "🖼️ MIRA TU ID EN ESTA IMAGEN: $link"
+          Write-Host "🔑 CONTRASEÑA: boosito"
+          Write-Host "========================================"
 
-      - name: 📦 4. DEJAR TOOLS EN ESCRITORIO
+      - name: 📦 4. TOOLS EN ESCRITORIO
         shell: powershell
         run: |
           $desk = "$env:USERPROFILE\Desktop"
@@ -62,4 +58,4 @@ jobs:
         shell: powershell
         run: |
           while($true) { Start-Sleep 60 }
-
+          
