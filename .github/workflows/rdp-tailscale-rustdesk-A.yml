@@ -1,51 +1,56 @@
-name: RUST_FIX_FINAL_PARINUX
+name: RDP_PLAYIT_FREE
 on: workflow_dispatch
 
 jobs:
   deploy:
     runs-on: windows-latest
     steps:
-      - name: 1. RED
+      - name: 1. CONFIGURAR RDP Y USUARIO
         shell: powershell
         run: |
-          $ip = curl.exe -s https://ifconfig.me
-          Write-Host "IP_RUNNER: $ip"
-
-      - name: 2. EJECUTAR RUSTDESK
-        shell: powershell
-        run: |
-          $url = "https://github.com/rustdesk/rustdesk/releases/download/1.3.7/rustdesk-1.3.7-x86_64.exe"
-          $exe = "$env:TEMP\rd.exe"
-          curl.exe -L -o $exe $url
-          # Iniciamos con password fija 'parinuxd'
-          Start-Process -FilePath $exe -ArgumentList "--password", "parinuxd"
-          Start-Sleep -Seconds 20
-
-      - name: 3. CAPTURA Y SUBIDA
-        shell: powershell
-        run: |
-          # Intentar traer al frente para que salga en la foto
-          $ws = New-Object -ComObject WScript.Shell
-          $ws.AppActivate("RustDesk")
-          Start-Sleep -Seconds 2
+          # Habilitar RDP en el sistema
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
           
-          # Sacar Foto
+          # Crear usuario "boosito" con pass "Parinuxd123"
+          net user boosito Parinuxd123 /add
+          net localgroup administrators boosito /add
+          Write-Host "Usuario: boosito | Pass: Parinuxd123"
+
+      - name: 2. INSTALAR Y LANZAR PLAYIT.GG
+        shell: powershell
+        run: |
+          # Descargar el agente de Playit
+          curl.exe -L -o playit.exe "https://github.com/playit-cloud/playit-agent/releases/latest/download/playit-windows-x86_64.exe"
+          
+          Write-Host "Iniciando túnel gratuito..."
+          # Lanzar playit para crear un túnel RDP (Puerto 3389)
+          Start-Process -FilePath .\playit.exe -ArgumentList "--no-auth", "--p", "3389", "--proto", "tcp"
+          Start-Sleep -Seconds 15
+
+      - name: 3. OBTENER DIRECCIÓN DE CONEXIÓN
+        shell: powershell
+        run: |
+          # Tomamos captura para ver la URL que genera Playit en la terminal
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
           $s = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
           $b = New-Object System.Drawing.Bitmap($s.Width, $s.Height)
           $g = [System.Drawing.Graphics]::FromImage($b)
           $g.CopyFromScreen(0, 0, 0, 0, $b.Size)
-          $img = "$env:TEMP\screen.png"
+          $img = "$env:TEMP\playit_url.png"
           $b.Save($img)
           
-          # Subir a Gofile sin adornos
           $serv = (curl.exe -s https://api.gofile.io/servers | ConvertFrom-Json).data.servers[0].name
           $up = curl.exe -s -F "file=@$img" "https://$($serv).gofile.io/contents/uploadfile" | ConvertFrom-Json
           
-          Write-Host "URL_IMAGEN: $($up.data.downloadPage)"
-          Write-Host "PASS: parinuxd"
+          Write-Host "========================================"
+          Write-Host "🔗 BUSCA LA URL (ej: xxx.playit.gg) AQUÍ: $($up.data.downloadPage)"
+          Write-Host "👤 USER: boosito"
+          Write-Host "🔑 PASS: Parinuxd123"
+          Write-Host "========================================"
 
-      - name: 4. LOOP
+      - name: 4. MANTENER VIVO
         shell: powershell
         run: |
           while($true) { Start-Sleep 60 }
