@@ -1,63 +1,72 @@
-name: RATA_W11_GLOOSO_FIXED
+name: RATA_ULTIMATE_REMOTLY
 on: workflow_dispatch
 
 jobs:
-  gaming-heist:
+  mirillis-heist:
     runs-on: windows-latest
     steps:
-      - name: 🇨🇱 1. REGION Y NOMBRE
+      - name: 🇨🇱 1. MODIFICAR REGIÓN Y NOMBRE
         shell: powershell
         run: |
           Set-WinHomeLocation -GeoId 46
           $n = "Glooso"
           Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName" -Name "ComputerName" -Value $n
 
-      - name: 🔑 2. ARREGLAR HOPTODESK (MODO PORTABLE)
+      - name: 🛡️ 2. INSTALAR HOPTODESK (MODO SERVICIO / NO ERROR)
         shell: powershell
         run: |
-          # Descarga
-          curl.exe -L -o "hoptodesk.exe" "https://download.hoptodesk.com/HopToDesk64.exe"
+          # Descargamos la versión 64 bits estable
+          $url = "https://download.hoptodesk.com/HopToDesk64.exe"
+          $exe = "$env:TEMP\hoptodesk.exe"
+          curl.exe -L -o $exe $url
           
-          # Lanzar HopToDesk en segundo plano primero para que genere el ID
-          Start-Process -FilePath ".\hoptodesk.exe"
-          Start-Sleep -Seconds 8
+          Write-Host "Instalando servicio de HopToDesk..."
+          # El truco PRO: Instalar como servicio evita el error de DLL y permite cambiar la pass
+          Start-Process -FilePath $exe -ArgumentList "--install" -Verb RunAs -Wait
           
-          # Ahora intentamos poner el pass sin que muera el proceso
-          ./hoptodesk.exe --password boosito
+          # Esperamos que el servicio arranque
+          Start-Sleep -Seconds 15
           
-          $id = ./hoptodesk.exe --get-id
-          Write-Host "========================================"
-          Write-Host "ID HOPTODESK: $id"
-          Write-Host "PASS: boosito"
-          Write-Host "========================================"
+          # Ruta real del servicio instalado
+          $servicePath = "C:\Program Files\HopToDesk\HopToDesk.exe"
+          
+          if (Test-Path $servicePath) {
+              # Seteamos la contraseña en el servicio
+              & $servicePath --password boosito
+              Start-Sleep -Seconds 2
+              $id = & $servicePath --get-id
+              
+              Write-Host "========================================"
+              Write-Host "✅ ID HOPTODESK: $id"
+              Write-Host "🔑 PASS: boosito"
+              Write-Host "========================================"
+          } else {
+              Write-Host "❌ Error: No se instaló el servicio. Intentando modo portable..."
+              & $exe --password boosito
+              $id = & $exe --get-id
+              Write-Host "ID (Portable): $id"
+          }
 
-      - name: ✈️ 3. INSTALAR TELEGRAM (SIN EJECUTAR)
+      - name: 🚀 3. INSTALAR REMOTLY (PRE-SETUP)
         shell: powershell
         run: |
-          $url = "https://telegram.org/dl/desktop/win64"
-          $dest = "$env:TEMP\telegram_setup.exe"
-          curl.exe -L -o $dest $url
+          $remotlyUrl = "https://downloads.mirillis.com/files/remotly_pc_1_37_2_setup.exe"
+          $dest = "$env:USERPROFILE\Desktop\Instalar_Remotly.exe"
           
-          Write-Host "Instalando Telegram silenciosamente..."
-          # /VERYSILENT instala, /NORESTART evita reinicios, y no usamos flags de auto-ejecución
-          Start-Process -FilePath $dest -ArgumentList "/VERYSILENT", "/DIR=C:\Telegram", "/NOICONS" -Wait
+          Write-Host "Bajando Remotly de Mirillis..."
+          curl.exe -L -o $dest $remotlyUrl
           
-          # Crear el acceso directo para que lo abras cuando quieras
+          # Lo ejecutamos silencioso pero NO lo matamos, para que instale drivers si puede
+          # OJO: Remotly pedirá instalar 'Mirillis Virtual Display'. 
+          # Tendrás que darle 'Sí' manualmentecuando entres por HopToDesk.
+          
+          # Creamos un script en el escritorio para abrirlo rápido si se cierra
           $ws = New-Object -ComObject WScript.Shell
-          $s = $ws.CreateShortcut("$env:USERPROFILE\Desktop\Telegram.lnk")
-          $s.TargetPath = "C:\Telegram\Telegram.exe"
+          $s = $ws.CreateShortcut("$env:USERPROFILE\Desktop\ABRIR_REMOTLY.lnk")
+          $s.TargetPath = $dest
           $s.Save()
 
-      - name: 🎮 4. SOLO DESCARGAR DISCORD PTB
-        shell: powershell
-        run: |
-          $url = "https://discord.com/api/downloads/distributions/app/installers/latest?channel=ptb&platform=win&arch=x64"
-          $dest = "$env:USERPROFILE\Desktop\Instalar_Discord_PTB.exe"
-          
-          Write-Host "Descargando Discord al Escritorio..."
-          curl.exe -L -o $dest $url
-
-      - name: 📸 5. EVIDENCIA GOFILE
+      - name: 📸 4. EVIDENCIA DE PANTALLA (Check Visual)
         shell: powershell
         run: |
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
@@ -65,18 +74,19 @@ jobs:
           $b = New-Object System.Drawing.Bitmap($s.Width, $s.Height)
           $g = [System.Drawing.Graphics]::FromImage($b)
           $g.CopyFromScreen(0, 0, 0, 0, $b.Size)
-          $imgPath = "C:\Users\Public\evidence.png"
+          $imgPath = "C:\Users\Public\screen.png"
           $b.Save($imgPath)
           
           $server = (curl.exe -s https://api.gofile.io/servers | ConvertFrom-Json).data.servers[0].name
           $link = (curl.exe -F "file=@$imgPath" "https://$($server).gofile.io/contents/uploadfile" | ConvertFrom-Json).data.downloadPage
-          Write-Host "----------------------------------------"
-          Write-Host "CAPTURA: $link"
-          Write-Host "----------------------------------------"
+          Write-Host "👀 MIRA SI SALIÓ EL ID AQUÍ: $link"
 
-      - name: 🔄 LOOP
+      - name: 🔄 5. LOOP DE MANTENIMIENTO
         shell: powershell
         run: |
-          Write-Host "Runner Activo. Telegram instalado (cerrado) y Discord listo en escritorio."
+          Write-Host "1. Conecta con HopToDesk (ID arriba, Pass: boosito)"
+          Write-Host "2. Abre 'Instalar_Remotly' en el escritorio"
+          Write-Host "3. Dale 'Install' y luego loguéate con tu Gmail"
+          Write-Host "4. ¡Listo! Cierra HopToDesk."
           while($true) { Start-Sleep 60 }
-          
+
