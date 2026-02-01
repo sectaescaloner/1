@@ -1,57 +1,47 @@
-name: RDP_PLAYIT_FREE
+name: RDP_PLAYIT_ULTIMATE
 on: workflow_dispatch
 
 jobs:
   deploy:
     runs-on: windows-latest
     steps:
-      - name: 1. CONFIGURAR RDP Y USUARIO
+      - name: 1. SETUP RDP
         shell: powershell
         run: |
-          # Habilitar RDP en el sistema
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
-          
-          # Crear usuario "boosito" con pass "Parinuxd123"
           net user boosito Parinuxd123 /add
           net localgroup administrators boosito /add
-          Write-Host "Usuario: boosito | Pass: Parinuxd123"
 
-      - name: 2. INSTALAR Y LANZAR PLAYIT.GG
+      - name: 2. LANZAR PLAYIT
         shell: powershell
         run: |
-          # Descargar el agente de Playit
           curl.exe -L -o playit.exe "https://github.com/playit-cloud/playit-agent/releases/latest/download/playit-windows-x86_64.exe"
-          
-          Write-Host "Iniciando túnel gratuito..."
-          # Lanzar playit para crear un túnel RDP (Puerto 3389)
+          # Iniciamos el tunel en segundo plano
           Start-Process -FilePath .\playit.exe -ArgumentList "--no-auth", "--p", "3389", "--proto", "tcp"
-          Start-Sleep -Seconds 15
+          Start-Sleep -Seconds 20
 
-      - name: 3. OBTENER DIRECCIÓN DE CONEXIÓN
+      - name: 3. CAPTURA URL
         shell: powershell
         run: |
-          # Tomamos captura para ver la URL que genera Playit en la terminal
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
-          $s = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-          $b = New-Object System.Drawing.Bitmap($s.Width, $s.Height)
-          $g = [System.Drawing.Graphics]::FromImage($b)
-          $g.CopyFromScreen(0, 0, 0, 0, $b.Size)
+          $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bitmap = New-Object System.Drawing.Bitmap($screen.Width, $screen.Height)
+          $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+          $graphics.CopyFromScreen(0, 0, 0, 0, $bitmap.Size)
           $img = "$env:TEMP\playit_url.png"
-          $b.Save($img)
+          $bitmap.Save($img)
           
           $serv = (curl.exe -s https://api.gofile.io/servers | ConvertFrom-Json).data.servers[0].name
           $up = curl.exe -s -F "file=@$img" "https://$($serv).gofile.io/contents/uploadfile" | ConvertFrom-Json
-          
-          Write-Host "========================================"
-          Write-Host "🔗 BUSCA LA URL (ej: xxx.playit.gg) AQUÍ: $($up.data.downloadPage)"
-          Write-Host "👤 USER: boosito"
-          Write-Host "🔑 PASS: Parinuxd123"
-          Write-Host "========================================"
+          $link = $up.data.downloadPage
+          Write-Host "LINK_CAPTURA: $link"
+          Write-Host "USER: boosito"
+          Write-Host "PASS: Parinuxd123"
 
-      - name: 4. MANTENER VIVO
+      - name: 4. KEEP ALIVE
         shell: powershell
         run: |
+          Write-Host "RUNNER_READY"
           while($true) { Start-Sleep 60 }
-
+          
