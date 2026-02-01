@@ -1,4 +1,4 @@
-name: RDP_PLAYIT_IP_LOG
+name: RDP_PLAYIT_V4
 on: workflow_dispatch
 
 jobs:
@@ -13,33 +13,41 @@ jobs:
           net user boosito Parinuxd123 /add
           net localgroup administrators boosito /add
 
-      - name: 2. EJECUTAR TUNEL Y EXTRAER IP
+      - name: 2. EJECUTAR PLAYIT (NUEVO COMANDO)
         shell: powershell
         run: |
-          # Descargar Playit
           curl.exe -L -o playit.exe "https://github.com/playit-cloud/playit-agent/releases/latest/download/playit-windows-x86_64.exe"
           
-          # Lanzar playit y volcar TODO el texto a un archivo de log
-          Start-Process -FilePath .\playit.exe -ArgumentList "--no-auth", "--p", "3389", "--proto", "tcp" -RedirectStandardOutput "playit.log"
+          # 'run' es el comando correcto para las versiones nuevas
+          Start-Process -FilePath .\playit.exe -ArgumentList "run" -RedirectStandardOutput "playit.log" -RedirectStandardError "playit_err.log"
           
-          Write-Host "Esperando a que Playit genere la direccion..."
+          Write-Host "Esperando 30 segundos para generar el link..."
           Start-Sleep -Seconds 30
-          
-          # Leer el log y buscar la linea del tunel o del reclamo
-          $log = Get-Content "playit.log"
-          $log | Select-String "tunnel" | ForEach-Object { Write-Host "DIRECCION ENCONTRADA: $($_.ToString())" }
-          $log | Select-String "claim" | ForEach-Object { Write-Host "URL DE RECLAMO: $($_.ToString())" }
-          
-          Write-Host "----------------------------------------"
-          Write-Host "USER: boosito"
-          Write-Host "PASS: Parinuxd123"
-          Write-Host "----------------------------------------"
 
-      - name: 3. MANTENER VIVO
+      - name: 3. EXTRAER URL DE RECLAMO
+        shell: powershell
+        run: |
+          Write-Host "========================================"
+          if (Test-Path "playit.log") {
+              $content = Get-Content "playit.log"
+              # Buscamos el link de reclamo (claim)
+              $claim = $content | Select-String "https://playit.gg/claim/"
+              if ($claim) {
+                  Write-Host "🔗 ABRE ESTE LINK PARA ACTIVAR:"
+                  Write-Host $claim
+              } else {
+                  Write-Host "⚠️ No se hallo link aun. Revisa el log completo abajo:"
+                  $content | Select-Object -Last 20
+              }
+          }
+          Write-Host "========================================"
+          Write-Host "USER: boosito | PASS: Parinuxd123"
+
+      - name: 4. MANTENER VIVO
         shell: powershell
         run: |
           while($true) { 
             Write-Host "Runner Activo - $(Get-Date)"
             Start-Sleep -Seconds 60 
           }
-
+          
