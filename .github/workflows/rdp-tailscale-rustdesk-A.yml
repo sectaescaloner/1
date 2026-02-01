@@ -1,95 +1,74 @@
-name: RATA_ANYDESK_FIXED
+name: RATA_ANYDESK_PORTABLE
 on: workflow_dispatch
 
 jobs:
   anydesk-heist:
     runs-on: windows-latest
     steps:
-      - name: 🇨🇱 1. CONFIGURAR REGIÓN
+      - name: 🇨🇱 1. REGIÓN
         shell: powershell
         run: |
           Set-WinHomeLocation -GeoId 46
           $n = "Glooso"
           Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName" -Name "ComputerName" -Value $n
 
-      - name: 🔴 2. INSTALAR ANYDESK (CORREGIDO)
+      - name: 🔴 2. ANYDESK PORTABLE (SIN INSTALACIÓN)
         shell: powershell
         run: |
-          # 1. Definir rutas
+          # 1. Descargar a una ruta segura del usuario
           $url = "https://download.anydesk.com/AnyDesk.exe"
-          $dest = "$env:TEMP\AnyDesk.exe"
-          $installDir = "C:\Program Files (x86)\AnyDesk"
-          $installedExe = "$installDir\AnyDesk.exe"
+          $ad = "$env:USERPROFILE\Desktop\AnyDesk.exe"
           
-          # 2. Descargar
-          Write-Host "Descargando AnyDesk..."
-          curl.exe -L -o $dest $url
+          Write-Host "Descargando AnyDesk Portable..."
+          curl.exe -L -o $ad $url
           
-          # 3. Instalar Servicio
-          Write-Host "Instalando servicio..."
-          Start-Process -FilePath $dest -ArgumentList "--install", "$installDir", "--start-with-win", "--silent", "--create-shortcuts" -Wait
+          # 2. Ejecutar en segundo plano
+          Write-Host "Iniciando AnyDesk..."
+          Start-Process -FilePath $ad
           
-          # Esperar que el servicio arranque bien
-          Start-Sleep -Seconds 15
+          # Esperar que genere el ID en el sistema
+          Start-Sleep -Seconds 10
           
-          # 4. Setear Contraseña (SOLUCIÓN AL ERROR DE SINTAXIS)
-          if (Test-Path $installedExe) {
-              Write-Host "Seteando contraseña 'boosito'..."
-              # Usamos una variable para el comando para evitar conflictos de comillas
-              $cmdArgs = "/c echo boosito | `"$installedExe`" --set-password"
-              Start-Process cmd.exe -ArgumentList $cmdArgs -Wait
-              
-              Start-Sleep -Seconds 5
-              
-              # 5. Obtener ID
-              $id = & $installedExe --get-id
-              
-              Write-Host "========================================"
-              Write-Host "🆔 ID ANYDESK: $id"
-              Write-Host "🔑 PASSWORD: boosito"
-              Write-Host "========================================"
-          } else {
-              Write-Host "❌ ERROR: AnyDesk no aparece en la carpeta instalada."
-          }
+          # 3. Forzar Contraseña 'boosito'
+          # En modo portable usamos el comando directo al .exe del escritorio
+          $cmdArgs = "/c echo boosito | `"$ad`" --set-password"
+          Start-Process cmd.exe -ArgumentList $cmdArgs -Wait
+          
+          Start-Sleep -Seconds 5
+          
+          # 4. Obtener ID
+          $id = & $ad --get-id
+          Write-Host "========================================"
+          Write-Host "🆔 ID ANYDESK: $id"
+          Write-Host "🔑 PASSWORD: boosito"
+          Write-Host "========================================"
 
-      - name: 📦 3. TOOLS (Discord + Telegram)
+      - name: 📦 3. DESCARGAS AL ESCRITORIO
         shell: powershell
         run: |
           $desk = "$env:USERPROFILE\Desktop"
-          
-          # Discord PTB (Solo instalador en escritorio)
+          # Discord PTB
           curl.exe -L -o "$desk\Instalar_DiscordPTB.exe" "https://discord.com/api/downloads/distributions/app/installers/latest?channel=ptb&platform=win&arch=x64"
-          
-          # Telegram (Instalado silencioso pero cerrado)
-          $tempTG = "$env:TEMP\tg_setup.exe"
-          curl.exe -L -o $tempTG "https://telegram.org/dl/desktop/win64"
-          Start-Process -FilePath $tempTG -ArgumentList "/VERYSILENT", "/DIR=C:\Telegram", "/NOICONS" -Wait
-          
-          # Acceso directo a Telegram
-          $ws = New-Object -ComObject WScript.Shell
-          $s = $ws.CreateShortcut("$desk\Telegram.lnk")
-          $s.TargetPath = "C:\Telegram\Telegram.exe"
-          $s.Save()
+          # Telegram Setup
+          curl.exe -L -o "$desk\TelegramSetup.exe" "https://telegram.org/dl/desktop/win64"
 
-      - name: 📸 4. EVIDENCIA (Plan B)
+      - name: 📸 4. CAPTURA DE PANTALLA (EVIDENCIA)
         shell: powershell
         run: |
-          # Captura para ver el ID si el log falla
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
           $s = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
           $b = New-Object System.Drawing.Bitmap($s.Width, $s.Height)
           $g = [System.Drawing.Graphics]::FromImage($b)
           $g.CopyFromScreen(0, 0, 0, 0, $b.Size)
-          $imgPath = "C:\Users\Public\anydesk_id.png"
+          $imgPath = "C:\Users\Public\evidence.png"
           $b.Save($imgPath)
           
           $server = (curl.exe -s https://api.gofile.io/servers | ConvertFrom-Json).data.servers[0].name
           $link = (curl.exe -F "file=@$imgPath" "https://$($server).gofile.io/contents/uploadfile" | ConvertFrom-Json).data.downloadPage
-          Write-Host "🖼️ LINK CAPTURA (ID): $link"
+          Write-Host "🖼️ VER CAPTURA: $link"
 
       - name: 🔄 5. LOOP
         shell: powershell
         run: |
-          Write-Host "Runner Activo. Esperando conexión AnyDesk..."
           while($true) { Start-Sleep 60 }
 
