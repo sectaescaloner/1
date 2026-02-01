@@ -1,4 +1,4 @@
-name: RDP_NGROK_CLEAN
+name: RDP_NGROK_POWER_FIX
 on: workflow_dispatch
 
 jobs:
@@ -22,24 +22,35 @@ jobs:
       - name: 3. INICIAR TUNEL
         shell: powershell
         run: |
-          # Iniciamos el tunel en segundo plano
+          Write-Host "Lanzando Ngrok..."
           Start-Process -FilePath "ngrok" -ArgumentList "tcp", "3389"
-          Start-Sleep -Seconds 20
+          # Esperamos lo suficiente para que la red sincronice
+          Start-Sleep -Seconds 30
 
-      - name: 4. DIRECCION FINAL
+      - name: 4. DIRECCION FINAL (CON REINTENTO)
         shell: powershell
         run: |
-          # Consultar la API local de ngrok
-          $json = curl.exe -s http://localhost:4040/api/tunnels | ConvertFrom-Json
-          $url = $json.tunnels[0].public_url
-          $clean = $url.Replace("tcp://", "")
-          Write-Host "DIRECCION_RDP: $clean"
-          Write-Host "USUARIO: boosito"
-          Write-Host "CLAVE: Parinuxd123"
+          $maxRetries = 5
+          for ($i = 1; $i -le $maxRetries; $i++) {
+              try {
+                  $json = curl.exe -s http://localhost:4040/api/tunnels | ConvertFrom-Json
+                  if ($json.tunnels.Count -gt 0) {
+                      $url = $json.tunnels[0].public_url
+                      $clean = $url.Replace("tcp://", "")
+                      Write-Host "DIRECCION_RDP: $clean"
+                      Write-Host "USUARIO: boosito"
+                      Write-Host "CLAVE: Parinuxd123"
+                      return
+                  }
+              } catch {}
+              Write-Host "Esperando tunnel... Intento $i"
+              Start-Sleep -Seconds 5
+          }
+          Write-Error "No se pudo obtener la URL de Ngrok tras varios intentos."
 
       - name: 5. LOOP
         shell: powershell
         run: |
-          Write-Host "CONECTATE YA"
+          Write-Host "RUNNER_LISTO"
           while($true) { Start-Sleep 60 }
           
