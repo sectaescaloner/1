@@ -1,0 +1,44 @@
+name: RUSTDESK_CATBOX_GO
+on:
+  workflow_dispatch:
+
+jobs:
+  rdp:
+    runs-on: windows-latest
+    steps:
+      - name: 1. Instalar RustDesk
+        shell: pwsh
+        run: |
+          $url = "https://github.com/rustdesk/rustdesk/releases/download/1.3.1/rustdesk-1.3.1-x86_64.msi"
+          Invoke-WebRequest -Uri $url -OutFile "rd.msi"
+          Start-Process msiexec.exe -ArgumentList "/i","rd.msi","/quiet","/norestart" -Wait
+
+      - name: 2. Captura y Link
+        shell: pwsh
+        run: |
+          $rd = "C:\Program Files\RustDesk\rustdesk.exe"
+          & $rd --password "boosito123"
+          Start-Sleep -Seconds 20
+          
+          # Captura simple
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $s = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $b = New-Object System.Drawing.Bitmap($s.Width, $s.Height)
+          $g = [System.Drawing.Graphics]::FromImage($b)
+          $g.CopyFromScreen(0,0,0,0,$b.Size)
+          $p = "$env:TEMP\z.png"
+          $b.Save($p, [System.Drawing.Imaging.ImageFormat]::Png)
+          $g.Dispose(); $b.Dispose()
+          
+          # Subida a Catbox
+          $link = curl.exe -F "reqtype=fileupload" -F "fileToUpload=@$p" https://catbox.moe/user/api.php
+          Write-Host "========================================"
+          Write-Host "🔗 FOTO: $link"
+          Write-Host "🔑 CLAVE: boosito123"
+          Write-Host "========================================"
+
+      - name: 3. Loop
+        shell: pwsh
+        run: |
+          while($true) { Write-Host "Running..."; Start-Sleep 60 }
+          
