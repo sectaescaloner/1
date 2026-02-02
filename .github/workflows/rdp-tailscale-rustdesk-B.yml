@@ -1,80 +1,56 @@
-name: SOLO_RUSTDESK
+name: RDP_RUSTDESK_CATBOX
 on:
   workflow_dispatch:
     inputs:
       runtime_minutes:
-        description: "Tiempo de encendido (minutos, max 360)"
-        required: false
+        description: "Minutos de encendido (max 360)"
         default: "355"
 
 jobs:
   rdp:
     runs-on: windows-latest
-    timeout-minutes: 370
     steps:
-      - name: 1. Instalar RustDesk (MSI)
+      - name: 1. Instalar RustDesk
         shell: pwsh
         run: |
-          $rdExe = "C:\Program Files\RustDesk\rustdesk.exe"
-          if (-not (Test-Path $rdExe)) {
-            Write-Host "Descargando e instalando RustDesk..."
-            $rdUrl = "https://github.com/rustdesk/rustdesk/releases/download/1.3.1/rustdesk-1.3.1-x86_64.msi"
-            $installerPath = "$env:TEMP\rustdesk.msi"
-            Invoke-WebRequest -Uri $rdUrl -OutFile $installerPath
-            Start-Process msiexec.exe -ArgumentList "/i","`"$installerPath`"","/quiet","/norestart" -Wait
-            Remove-Item $installerPath -Force
-          }
-          Write-Host "RustDesk instalado correctamente."
+          $url = "https://github.com/rustdesk/rustdesk/releases/download/1.3.1/rustdesk-1.3.1-x86_64.msi"
+          Invoke-WebRequest -Uri $url -OutFile "rustdesk.msi"
+          Start-Process msiexec.exe -ArgumentList "/i","rustdesk.msi","/quiet","/norestart" -Wait
 
-      - name: 2. Abrir Puertos en Firewall
+      - name: 2. Configurar y Capturar a Catbox
         shell: pwsh
         run: |
-          Write-Host "Configurando Firewall para RustDesk..."
-          for ($p=21115; $p -le 21119; $p++) {
-            netsh advfirewall firewall add rule name="RustDesk-TCP-$p" dir=in action=allow protocol=TCP localport=$p
-          }
-          netsh advfirewall firewall add rule name="RustDesk-UDP-21116" dir=in action=allow protocol=UDP localport=21116
-
-      - name: 3. Lanzar RustDesk y Capturar ID
-        shell: pwsh
-        run: |
-          $rdExe = "C:\Program Files\RustDesk\rustdesk.exe"
-          # Iniciar RustDesk
-          Start-Process -FilePath $rdExe
-          Write-Host "Esperando 10 segundos para que genere el ID..."
+          $rd = "C:\Program Files\RustDesk\rustdesk.exe"
+          # Configura contraseña fija
+          & $rd --password "boosito123"
           Start-Sleep -Seconds 10
-
-          # Tomar captura de pantalla para ver el ID y Password
-          $screenshotPath = "$env:TEMP\rustdesk_access.png"
+          
+          # Sacar captura de pantalla
+          $screen = "$env:TEMP\screenshot.png"
           Add-Type -AssemblyName System.Windows.Forms
           Add-Type -AssemblyName System.Drawing
-          $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-          $bitmap = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
-          $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-          $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
-          $bitmap.Save($screenshotPath, [System.Drawing.Imaging.ImageFormat]::Png)
-          $graphics.Dispose(); $bitmap.Dispose()
+          $bmp = New-Object System.Drawing.Bitmap([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width, [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height)
+          $graphics = [System.Drawing.Graphics]::FromImage($bmp)
+          $graphics.CopyFromScreen(0, 0, 0, 0, $bmp.Size)
+          $bmp.Save($screen, [System.Drawing.Imaging.ImageFormat]::Png)
+          $graphics.Dispose(); $bmp.Dispose()
+          
+          # Subir a Catbox.moe
+          Write-Host "Subiendo captura a Catbox..."
+          $url = curl.exe -F "reqtype=fileupload" -F "fileToUpload=@$screen" https://catbox.moe/user/api.php
+          
+          Write-Host "========================================"
+          Write-Host "🔗 LINK DE LA CAPTURA: $url"
+          Write-Host "🆔 BUSCA EL ID EN LA IMAGEN"
+          Write-Host "🔑 CONTRASEÑA SETEADA: boosito123"
+          Write-Host "========================================"
 
-          # Subir captura a Gofile
-          Write-Host "Subiendo captura a Gofile..."
-          $curlResult = curl.exe -F "file=@$screenshotPath" https://store1.gofile.io/uploadFile
-          $json = $curlResult | ConvertFrom-Json
-          if ($json.status -eq "ok") { 
-            Write-Host "========================================"
-            Write-Host "🔗 VER ID Y PASS AQUÍ: $($json.data.downloadPage)"
-            Write-Host "========================================"
-          } else {
-            Write-Error "Fallo al subir la imagen a Gofile."
-          }
-
-      - name: 4. Mantener Vivo
+      - name: 3. Mantener Vivo
         shell: pwsh
         run: |
-          $mins = [int]"${{ inputs.runtime_minutes }}"
-          $end = (Get-Date).AddMinutes($mins)
-          Write-Host "Runner activo por $mins minutos. Finaliza a las: $($end.ToString('HH:mm:ss'))"
+          $end = (Get-Date).AddMinutes(${{ inputs.runtime_minutes }})
           while ((Get-Date) -lt $end) {
-            Write-Host "Heartbeat $(Get-Date) - No cerrar esta pestaña"
+            Write-Host "Ejecutando... finaliza a las $($end.ToString('HH:mm'))"
             Start-Sleep -Seconds 60
           }
-          
+
