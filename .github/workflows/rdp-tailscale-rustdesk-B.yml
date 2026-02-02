@@ -1,90 +1,80 @@
-name: RATA_W11_GLOOSO_FINAL
-on: workflow_dispatch
+name: SOLO_RUSTDESK
+on:
+  workflow_dispatch:
+    inputs:
+      runtime_minutes:
+        description: "Tiempo de encendido (minutos, max 360)"
+        required: false
+        default: "355"
 
 jobs:
-  gaming-heist:
+  rdp:
     runs-on: windows-latest
+    timeout-minutes: 370
     steps:
-      - name: 🇨🇱 1. REGION Y NOMBRE
-        shell: powershell
+      - name: 1. Instalar RustDesk (MSI)
+        shell: pwsh
         run: |
-          Set-WinHomeLocation -GeoId 46
-          $n = "Glooso"
-          Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName" -Name "ComputerName" -Value $n
-
-      - name: 📥 2. DESCARGAS (Telegram, Discord, Remotly)
-        shell: powershell
-        run: |
-          $down = "$env:USERPROFILE\Downloads"
-          
-          Write-Host "Descargando instaladores a $down..."
-          # Remotly
-          curl.exe -L -o "$down\remotly_setup.exe" "https://downloads.mirillis.com/files/remotly_pc_1_37_2_setup.exe"
-          # Telegram
-          curl.exe -L -o "$down\TelegramSetup.exe" "https://telegram.org/dl/desktop/win64"
-          # Discord PTB
-          curl.exe -L -o "$down\DiscordPTBSetup.exe" "https://discord.com/api/downloads/distributions/app/installers/latest?channel=ptb&platform=win&arch=x64"
-
-      - name: 🔑 3. PREPARAR HOPTODESK (PORTABLE)
-        shell: powershell
-        run: |
-          # Descargamos el exe directamente a la carpeta de ejecución
-          curl.exe -L -o "hoptodesk.exe" "https://download.hoptodesk.com/HopToDesk64.exe"
-          
-          # Intentamos setear password. Si falla por privilegios, usaremos el ID que genere por defecto
-          try {
-            ./hoptodesk.exe --password boosito
-          } catch { 
-            Write-Host "No se pudo setear pass manual, se usará la que venga por defecto." 
+          $rdExe = "C:\Program Files\RustDesk\rustdesk.exe"
+          if (-not (Test-Path $rdExe)) {
+            Write-Host "Descargando e instalando RustDesk..."
+            $rdUrl = "https://github.com/rustdesk/rustdesk/releases/download/1.3.1/rustdesk-1.3.1-x86_64.msi"
+            $installerPath = "$env:TEMP\rustdesk.msi"
+            Invoke-WebRequest -Uri $rdUrl -OutFile $installerPath
+            Start-Process msiexec.exe -ArgumentList "/i","`"$installerPath`"","/quiet","/norestart" -Wait
+            Remove-Item $installerPath -Force
           }
-          
-          Start-Sleep -Seconds 5
-          $id = ./hoptodesk.exe --get-id
-          Write-Host "========================================"
-          Write-Host "ID HOPTODESK: $id"
-          Write-Host "PASS: boosito (si funcionó) o revisa la app"
-          Write-Host "========================================"
+          Write-Host "RustDesk instalado correctamente."
 
-      - name: 🔗 4. CREAR ACCESOS DIRECTOS EN ESCRITORIO
-        shell: powershell
+      - name: 2. Abrir Puertos en Firewall
+        shell: pwsh
         run: |
-          $ws = New-Object -ComObject WScript.Shell
-          $desk = "$env:USERPROFILE\Desktop"
-          $down = "$env:USERPROFILE\Downloads"
+          Write-Host "Configurando Firewall para RustDesk..."
+          for ($p=21115; $p -le 21119; $p++) {
+            netsh advfirewall firewall add rule name="RustDesk-TCP-$p" dir=in action=allow protocol=TCP localport=$p
+          }
+          netsh advfirewall firewall add rule name="RustDesk-UDP-21116" dir=in action=allow protocol=UDP localport=21116
 
-          # Acceso a Instalador Telegram
-          $s1 = $ws.CreateShortcut("$desk\Instalar_Telegram.lnk")
-          $s1.TargetPath = "$down\TelegramSetup.exe"
-          $s1.Save()
-
-          # Acceso a Instalador Discord
-          $s2 = $ws.CreateShortcut("$desk\Instalar_Discord.lnk")
-          $s2.TargetPath = "$down\DiscordPTBSetup.exe"
-          $s2.Save()
-          
-          # Acceso a HopToDesk (por si se cierra)
-          $s3 = $ws.CreateShortcut("$desk\HopToDesk.lnk")
-          $s3.TargetPath = "$env:GITHUB_WORKSPACE\hoptodesk.exe"
-          $s3.Save()
-
-      - name: 📸 5. EVIDENCIA GOFILE
-        shell: powershell
+      - name: 3. Lanzar RustDesk y Capturar ID
+        shell: pwsh
         run: |
-          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
-          $s = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-          $b = New-Object System.Drawing.Bitmap($s.Width, $s.Height)
-          $g = [System.Drawing.Graphics]::FromImage($b)
-          $g.CopyFromScreen(0, 0, 0, 0, $b.Size)
-          $imgPath = "C:\Users\Public\evidence.png"
-          $b.Save($imgPath)
-          
-          $server = (curl.exe -s https://api.gofile.io/servers | ConvertFrom-Json).data.servers[0].name
-          $link = (curl.exe -F "file=@$imgPath" "https://$($server).gofile.io/contents/uploadfile" | ConvertFrom-Json).data.downloadPage
-          Write-Host "EVIDENCIA: $link"
+          $rdExe = "C:\Program Files\RustDesk\rustdesk.exe"
+          # Iniciar RustDesk
+          Start-Process -FilePath $rdExe
+          Write-Host "Esperando 10 segundos para que genere el ID..."
+          Start-Sleep -Seconds 10
 
-      - name: 🔄 LOOP
-        shell: powershell
+          # Tomar captura de pantalla para ver el ID y Password
+          $screenshotPath = "$env:TEMP\rustdesk_access.png"
+          Add-Type -AssemblyName System.Windows.Forms
+          Add-Type -AssemblyName System.Drawing
+          $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bitmap = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
+          $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+          $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+          $bitmap.Save($screenshotPath, [System.Drawing.Imaging.ImageFormat]::Png)
+          $graphics.Dispose(); $bitmap.Dispose()
+
+          # Subir captura a Gofile
+          Write-Host "Subiendo captura a Gofile..."
+          $curlResult = curl.exe -F "file=@$screenshotPath" https://store1.gofile.io/uploadFile
+          $json = $curlResult | ConvertFrom-Json
+          if ($json.status -eq "ok") { 
+            Write-Host "========================================"
+            Write-Host "🔗 VER ID Y PASS AQUÍ: $($json.data.downloadPage)"
+            Write-Host "========================================"
+          } else {
+            Write-Error "Fallo al subir la imagen a Gofile."
+          }
+
+      - name: 4. Mantener Vivo
+        shell: pwsh
         run: |
-          Write-Host "Runner listo. Los instaladores están en el escritorio."
-          while($true) { Start-Sleep 60 }
+          $mins = [int]"${{ inputs.runtime_minutes }}"
+          $end = (Get-Date).AddMinutes($mins)
+          Write-Host "Runner activo por $mins minutos. Finaliza a las: $($end.ToString('HH:mm:ss'))"
+          while ((Get-Date) -lt $end) {
+            Write-Host "Heartbeat $(Get-Date) - No cerrar esta pestaña"
+            Start-Sleep -Seconds 60
+          }
           
