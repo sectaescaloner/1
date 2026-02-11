@@ -1,39 +1,34 @@
-name: Hydra-Infinite-Millon
+name: Hydra-V43-Legal-Persistent
 on:
   workflow_dispatch:
     inputs:
       token:
-        description: 'Token de Discord'
+        description: 'Token de cuenta'
+        required: true
+      canal_id:
+        description: 'ID del Canal objetivo'
         required: true
       comando:
-        description: 'Comando de activación'
-        required: true
+        description: 'Comando activación'
         default: '!pe'
       mensaje:
-        description: 'Mensaje de spam'
+        description: 'Mensaje a enviar'
         required: true
       mi_id:
         description: 'Tu ID de Discord'
         required: true
 
-permissions:
-  contents: write
-  actions: write
-
 jobs:
   execute:
     runs-on: windows-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-
     - name: Setup Node
       uses: actions/setup-node@v4
       with:
         node-version: '20'
 
     - name: Install
-      run: npm install discord.js-selfbot-v13 debug timers
+      run: npm install discord.js-selfbot-v13 timers
 
     - name: Create index.js
       shell: bash
@@ -44,78 +39,98 @@ jobs:
 
         const config = {
           token: "${{ github.event.inputs.token }}",
+          targetChannel: "${{ github.event.inputs.canal_id }}",
           cmd: "${{ github.event.inputs.comando }}",
           msg: "${{ github.event.inputs.mensaje }}",
           owner: "${{ github.event.inputs.mi_id }}"
         };
 
         const client = new Client({ checkUpdate: false });
-        const actividad = new Map();
-        const activos = new Set();
+        let isSpamming = false;
+        let lastMessageTime = Date.now();
+        let activityCount = 0;
 
-        client.on('ready', () => console.log("✅ Hydra V41 Online: " + client.user.tag));
+        client.on('ready', () => {
+            console.log("🛡️ Hydra V43 Protegido - Canal: " + config.targetChannel);
+            monitorChannel();
+        });
 
         client.on('messageCreate', async (m) => {
-            // Filtro Grupos MD
-            if (m.guild || m.channel.type === 'DM') return;
-            const cid = m.channel.id;
+            if (m.channel.id !== config.targetChannel) return;
 
-            // 1. MANUAL (Tu ID)
-            if (m.author.id === config.owner && m.content.startsWith(config.cmd)) {
-                try { await m.delete(); } catch(e) {}
-                startSpam(m.channel);
-                return;
-            }
+            // Reiniciar contador de inactividad
+            lastMessageTime = Date.now();
 
-            // 2. AUTO-TRIGGER DIRECTO (Solo 2 mensajes de otros)
-            if (!activos.has(cid) && m.author.id !== client.user.id) {
-                let count = (actividad.get(cid) || 0) + 1;
-                actividad.set(cid, count);
-                console.log("[DEBUG] Actividad en " + cid + ": " + count + "/2");
-
-                if (count >= 2) { 
-                    console.log("🔥 ¡Acción detectada! Lanzando Hydra...");
-                    actividad.delete(cid); // Limpiar para que no se duplique
+            // Activar si detecta 2 mensajes de otros
+            if (!isSpamming && m.author.id !== client.user.id) {
+                activityCount++;
+                if (activityCount >= 2) {
+                    console.log("🔥 Actividad detectada. Iniciando...");
                     startSpam(m.channel);
                 }
             }
+
+            // Control manual
+            if (m.author.id === config.owner && m.content === config.cmd) {
+                startSpam(m.channel);
+            }
         });
 
-        async function startSpam(channel) {
-            if (activos.has(channel.id)) return;
-            activos.add(channel.id);
+        async function monitorChannel() {
+            while (true) {
+                await wait(60000); // Revisar cada minuto
+                const inactivoHace = (Date.now() - lastMessageTime) / 1000 / 60;
 
-            while (activos.has(channel.id)) {
+                if (!isSpamming && inactivoHace >= 20) {
+                    console.log("💤 Canal muerto por 20min. Reviviendo...");
+                    const channel = await client.channels.fetch(config.targetChannel);
+                    if (channel) {
+                        await channel.send(config.cmd);
+                        startSpam(channel);
+                    }
+                }
+            }
+        }
+
+        async function startSpam(channel) {
+            if (isSpamming) return;
+            isSpamming = true;
+            activityCount = 0;
+
+            while (isSpamming) {
                 try {
-                    // Respeto: 8 a 15 segundos (Para durar el mes entero)
-                    const delay = Math.floor(Math.random() * (15000 - 8000 + 1)) + 8000;
+                    // Delay "Legal": 15 a 30 segundos
+                    const delay = Math.floor(Math.random() * (30000 - 15000 + 1)) + 15000;
                     await wait(delay);
                     await channel.send(config.msg);
                 } catch (e) {
                     if (e.code === 429) await wait(60000);
-                    else { activos.delete(channel.id); break; }
+                    else { isSpamming = false; break; }
                 }
             }
         }
         client.login(config.token);
         EOF
 
-    - name: Infinite Relevo
+    - name: Relevo 5 Minutos Antes
       shell: bash
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         node index.js &
-        echo "⏳ Monitor activo. Auto-clonación en 5 horas..."
-        sleep 18000
+        echo "⏳ Ejecutando por 5 horas y 55 minutos..."
         
-        # El comando que hereda todo al siguiente runner
+        # 21300 segundos = 5 horas y 55 minutos
+        sleep 21300
+        
+        echo "🚀 Creando sucesor antes de morir..."
         gh workflow run main.yml \
           -f token="${{ github.event.inputs.token }}" \
+          -f canal_id="${{ github.event.inputs.canal_id }}" \
           -f comando="${{ github.event.inputs.comando }}" \
           -f mensaje="${{ github.event.inputs.mensaje }}" \
           -f mi_id="${{ github.event.inputs.mi_id }}"
         
-        echo "✅ Relevo enviado con éxito. El ciclo sigue 24/7."
-        sleep 600
-        
+        echo "✅ Sucesor lanzado. Finalizando runner actual en 5 minutos."
+        sleep 300
+
