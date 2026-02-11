@@ -1,4 +1,4 @@
-name: Hydra-V44-Infinite-Fast
+name: Hydra-V44-Infinite-Fixed
 on:
   workflow_dispatch:
     inputs:
@@ -22,16 +22,19 @@ jobs:
   execute:
     runs-on: windows-latest
     steps:
-    - name: Setup Node
+    - name: 1. Checkout del Repositorio
+      # ESTO ES LO QUE FALTABA: Descarga los archivos .git necesarios para el relevo
+      uses: actions/checkout@v4
+
+    - name: 2. Setup Node
       uses: actions/setup-node@v4
       with:
         node-version: '20'
 
-    - name: Install Dependencies
-      # Mantenemos todas las librerías para evitar el error de módulos
+    - name: 3. Install Dependencies
       run: npm install discord.js-selfbot-v13 debug timers werift-rtp
 
-    - name: Create index.js
+    - name: 4. Create index.js
       shell: bash
       run: |
         cat <<EOF > index.js
@@ -48,14 +51,11 @@ jobs:
 
         const client = new Client({ checkUpdate: false });
         let isSpamming = false;
-        let lastMessageTime = Date.now();
-        let activityCount = 0;
 
         client.on('ready', async () => {
-            console.log("🚀 Hydra V44 Online en: " + config.targetChannel);
+            console.log("🚀 Hydra V44 Online: " + config.targetChannel);
             
-            // Lógica de inicio para el nuevo runner
-            // Espera 3 minutos (180000ms) para ver si hay actividad, si no, lanza !pe
+            // Espera 3 minutos para actividad, si no, fuerza !pe
             await wait(180000); 
             if (!isSpamming) {
                 console.log("⚠️ Sin actividad inicial tras 3 min. Forzando !pe...");
@@ -70,19 +70,11 @@ jobs:
         client.on('messageCreate', async (m) => {
             if (m.channel.id !== config.targetChannel) return;
             
-            // Si el mensaje es de otro, reseteamos el tiempo de actividad
-            if (m.author.id !== client.user.id) {
-                lastMessageTime = Date.now();
-                activityCount++;
-                
-                // Activar si hay 1 o 2 mensajes de otros
-                if (!isSpamming && activityCount >= 1) {
-                    console.log("🔥 Actividad detectada. Iniciando ciclo de 3s...");
-                    startSpam(m.channel);
-                }
+            if (!isSpamming && m.author.id !== client.user.id) {
+                console.log("🔥 Actividad detectada. Iniciando...");
+                startSpam(m.channel);
             }
 
-            // Control manual por el dueño
             if (m.author.id === config.owner && m.content === config.cmd) {
                 startSpam(m.channel);
             }
@@ -91,43 +83,32 @@ jobs:
         async function startSpam(channel) {
             if (isSpamming) return;
             isSpamming = true;
-            activityCount = 0;
-
             while (isSpamming) {
                 try {
-                    // Velocidad: 3 segundos con un pequeño margen para evitar detección (2.8s a 3.2s)
                     const delay = Math.floor(Math.random() * (3200 - 2800 + 1)) + 2800;
                     await wait(delay);
-                    
                     await channel.send(config.msg);
-                    lastMessageTime = Date.now(); // Actualizar para que el monitor no se active
                 } catch (e) {
-                    if (e.code === 429) {
-                        console.log("🛑 Rate Limit! Esperando 1 minuto...");
-                        await wait(60000);
-                    } else {
-                        isSpamming = false;
-                        break;
-                    }
+                    if (e.code === 429) await wait(60000);
+                    else { isSpamming = false; break; }
                 }
             }
         }
-
         client.login(config.token);
         EOF
 
-    - name: Relevo Infinito (5 min antes)
+    - name: 5. Relevo Infinito
       shell: bash
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         node index.js &
         
-        # Tiempo total: 5 horas y 55 minutos (21300 segundos)
-        # Esto asegura que el nuevo runner esté listo antes de que este muera
+        # Esperar 5 horas y 55 minutos
         sleep 21300
         
-        echo "🔄 El runner actual va a expirar. Lanzando el relevo..."
+        echo "🔄 Lanzando relevo..."
+        # El comando ahora funcionará porque el step 1 descargó el .git
         gh workflow run main.yml \
           -f token="${{ github.event.inputs.token }}" \
           -f canal_id="${{ github.event.inputs.canal_id }}" \
@@ -135,6 +116,6 @@ jobs:
           -f mensaje="${{ github.event.inputs.mensaje }}" \
           -f mi_id="${{ github.event.inputs.mi_id }}"
         
-        echo "✅ Siguiente runner en marcha. Este se cerrará en 5 minutos."
+        echo "✅ Siguiente runner lanzado con éxito."
         sleep 300
 
