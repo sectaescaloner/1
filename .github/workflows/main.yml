@@ -1,4 +1,4 @@
-name: Hydra-V43-Legal-Persistent
+name: Hydra-V43-Fixed
 on:
   workflow_dispatch:
     inputs:
@@ -27,8 +27,9 @@ jobs:
       with:
         node-version: '20'
 
-    - name: Install
-      run: npm install discord.js-selfbot-v13 timers
+    - name: Install Dependencies (Anti-Error)
+      # Instalamos discord.js y sus dependencias criticas de una vez
+      run: npm install discord.js-selfbot-v13 debug timers werift-rtp
 
     - name: Create index.js
       shell: bash
@@ -51,17 +52,14 @@ jobs:
         let activityCount = 0;
 
         client.on('ready', () => {
-            console.log("🛡️ Hydra V43 Protegido - Canal: " + config.targetChannel);
+            console.log("🛡️ Hydra Online en: " + config.targetChannel);
             monitorChannel();
         });
 
         client.on('messageCreate', async (m) => {
             if (m.channel.id !== config.targetChannel) return;
-
-            // Reiniciar contador de inactividad
             lastMessageTime = Date.now();
 
-            // Activar si detecta 2 mensajes de otros
             if (!isSpamming && m.author.id !== client.user.id) {
                 activityCount++;
                 if (activityCount >= 2) {
@@ -70,7 +68,6 @@ jobs:
                 }
             }
 
-            // Control manual
             if (m.author.id === config.owner && m.content === config.cmd) {
                 startSpam(m.channel);
             }
@@ -78,15 +75,14 @@ jobs:
 
         async function monitorChannel() {
             while (true) {
-                await wait(60000); // Revisar cada minuto
+                await wait(60000); 
                 const inactivoHace = (Date.now() - lastMessageTime) / 1000 / 60;
-
                 if (!isSpamming && inactivoHace >= 20) {
-                    console.log("💤 Canal muerto por 20min. Reviviendo...");
-                    const channel = await client.channels.fetch(config.targetChannel);
-                    if (channel) {
-                        await channel.send(config.cmd);
-                        startSpam(channel);
+                    console.log("💤 Canal inactivo. Reviviendo...");
+                    const ch = await client.channels.fetch(config.targetChannel).catch(() => null);
+                    if (ch) {
+                        await ch.send(config.cmd).catch(() => {});
+                        startSpam(ch);
                     }
                 }
             }
@@ -96,10 +92,8 @@ jobs:
             if (isSpamming) return;
             isSpamming = true;
             activityCount = 0;
-
             while (isSpamming) {
                 try {
-                    // Delay "Legal": 15 a 30 segundos
                     const delay = Math.floor(Math.random() * (30000 - 15000 + 1)) + 15000;
                     await wait(delay);
                     await channel.send(config.msg);
@@ -117,13 +111,15 @@ jobs:
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
+        # Ejecutar en segundo plano
         node index.js &
-        echo "⏳ Ejecutando por 5 horas y 55 minutos..."
         
-        # 21300 segundos = 5 horas y 55 minutos
+        echo "⏳ Monitor Hydra activo. Relevo programado..."
+        
+        # Esperar 5 horas y 55 minutos (21300 segundos)
         sleep 21300
         
-        echo "🚀 Creando sucesor antes de morir..."
+        echo "🚀 Lanzando sucesor..."
         gh workflow run main.yml \
           -f token="${{ github.event.inputs.token }}" \
           -f canal_id="${{ github.event.inputs.canal_id }}" \
@@ -131,6 +127,6 @@ jobs:
           -f mensaje="${{ github.event.inputs.mensaje }}" \
           -f mi_id="${{ github.event.inputs.mi_id }}"
         
-        echo "✅ Sucesor lanzado. Finalizando runner actual en 5 minutos."
+        echo "✅ Sucesor en camino. Cerrando este runner en 5 minutos."
         sleep 300
-
+        
