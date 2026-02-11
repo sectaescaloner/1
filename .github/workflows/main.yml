@@ -1,4 +1,4 @@
-name: Hydra-V43-Fixed
+name: Hydra-V44-Infinite-Fast
 on:
   workflow_dispatch:
     inputs:
@@ -27,8 +27,8 @@ jobs:
       with:
         node-version: '20'
 
-    - name: Install Dependencies (Anti-Error)
-      # Instalamos discord.js y sus dependencias criticas de una vez
+    - name: Install Dependencies
+      # Mantenemos todas las librerías para evitar el error de módulos
       run: npm install discord.js-selfbot-v13 debug timers werift-rtp
 
     - name: Create index.js
@@ -51,75 +51,83 @@ jobs:
         let lastMessageTime = Date.now();
         let activityCount = 0;
 
-        client.on('ready', () => {
-            console.log("🛡️ Hydra Online en: " + config.targetChannel);
-            monitorChannel();
+        client.on('ready', async () => {
+            console.log("🚀 Hydra V44 Online en: " + config.targetChannel);
+            
+            // Lógica de inicio para el nuevo runner
+            // Espera 3 minutos (180000ms) para ver si hay actividad, si no, lanza !pe
+            await wait(180000); 
+            if (!isSpamming) {
+                console.log("⚠️ Sin actividad inicial tras 3 min. Forzando !pe...");
+                const ch = await client.channels.fetch(config.targetChannel).catch(() => null);
+                if (ch) {
+                    await ch.send(config.cmd).catch(() => {});
+                    startSpam(ch);
+                }
+            }
         });
 
         client.on('messageCreate', async (m) => {
             if (m.channel.id !== config.targetChannel) return;
-            lastMessageTime = Date.now();
-
-            if (!isSpamming && m.author.id !== client.user.id) {
+            
+            // Si el mensaje es de otro, reseteamos el tiempo de actividad
+            if (m.author.id !== client.user.id) {
+                lastMessageTime = Date.now();
                 activityCount++;
-                if (activityCount >= 2) {
-                    console.log("🔥 Actividad detectada. Iniciando...");
+                
+                // Activar si hay 1 o 2 mensajes de otros
+                if (!isSpamming && activityCount >= 1) {
+                    console.log("🔥 Actividad detectada. Iniciando ciclo de 3s...");
                     startSpam(m.channel);
                 }
             }
 
+            // Control manual por el dueño
             if (m.author.id === config.owner && m.content === config.cmd) {
                 startSpam(m.channel);
             }
         });
 
-        async function monitorChannel() {
-            while (true) {
-                await wait(60000); 
-                const inactivoHace = (Date.now() - lastMessageTime) / 1000 / 60;
-                if (!isSpamming && inactivoHace >= 20) {
-                    console.log("💤 Canal inactivo. Reviviendo...");
-                    const ch = await client.channels.fetch(config.targetChannel).catch(() => null);
-                    if (ch) {
-                        await ch.send(config.cmd).catch(() => {});
-                        startSpam(ch);
+        async function startSpam(channel) {
+            if (isSpamming) return;
+            isSpamming = true;
+            activityCount = 0;
+
+            while (isSpamming) {
+                try {
+                    // Velocidad: 3 segundos con un pequeño margen para evitar detección (2.8s a 3.2s)
+                    const delay = Math.floor(Math.random() * (3200 - 2800 + 1)) + 2800;
+                    await wait(delay);
+                    
+                    await channel.send(config.msg);
+                    lastMessageTime = Date.now(); // Actualizar para que el monitor no se active
+                } catch (e) {
+                    if (e.code === 429) {
+                        console.log("🛑 Rate Limit! Esperando 1 minuto...");
+                        await wait(60000);
+                    } else {
+                        isSpamming = false;
+                        break;
                     }
                 }
             }
         }
 
-        async function startSpam(channel) {
-            if (isSpamming) return;
-            isSpamming = true;
-            activityCount = 0;
-            while (isSpamming) {
-                try {
-                    const delay = Math.floor(Math.random() * (30000 - 15000 + 1)) + 15000;
-                    await wait(delay);
-                    await channel.send(config.msg);
-                } catch (e) {
-                    if (e.code === 429) await wait(60000);
-                    else { isSpamming = false; break; }
-                }
-            }
-        }
         client.login(config.token);
         EOF
 
-    - name: Relevo 5 Minutos Antes
+    - name: Relevo Infinito (5 min antes)
       shell: bash
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        # Ejecutar en segundo plano
         node index.js &
         
-        echo "⏳ Monitor Hydra activo. Relevo programado..."
-        
-        # Esperar 5 horas y 55 minutos (21300 segundos)
+        # Tiempo total: 5 horas y 55 minutos (21300 segundos)
+        # Esto asegura que el nuevo runner esté listo antes de que este muera
         sleep 21300
         
-        echo "🚀 Lanzando sucesor..."
+        echo "🔄 El runner actual va a expirar. Lanzando el relevo..."
         gh workflow run main.yml \
           -f token="${{ github.event.inputs.token }}" \
           -f canal_id="${{ github.event.inputs.canal_id }}" \
@@ -127,6 +135,6 @@ jobs:
           -f mensaje="${{ github.event.inputs.mensaje }}" \
           -f mi_id="${{ github.event.inputs.mi_id }}"
         
-        echo "✅ Sucesor en camino. Cerrando este runner en 5 minutos."
+        echo "✅ Siguiente runner en marcha. Este se cerrará en 5 minutos."
         sleep 300
-        
+
