@@ -1,4 +1,4 @@
-name: RUSTDESK_CATBOX_GO
+Name: RUSTDESK_CATBOX_GO
 on:
   workflow_dispatch:
 
@@ -13,14 +13,14 @@ jobs:
           Invoke-WebRequest -Uri $url -OutFile "rd.msi"
           Start-Process msiexec.exe -ArgumentList "/i","rd.msi","/quiet","/norestart" -Wait
 
-      - name: 2. Captura y Link
+      - name: 2. Captura y Link (Catbox)
         shell: pwsh
         run: |
           $rd = "C:\Program Files\RustDesk\rustdesk.exe"
           & $rd --password "boosito123"
           Start-Sleep -Seconds 20
           
-          # Captura simple
+          # Captura de pantalla
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
           $s = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
           $b = New-Object System.Drawing.Bitmap($s.Width, $s.Height)
@@ -30,15 +30,18 @@ jobs:
           $b.Save($p, [System.Drawing.Imaging.ImageFormat]::Png)
           $g.Dispose(); $b.Dispose()
           
-          # Subida a Catbox
+          # Subida a Catbox.moe
+          # Nota: Usamos la API pública de Catbox
           $link = curl.exe -F "reqtype=fileupload" -F "fileToUpload=@$p" https://catbox.moe/user/api.php
+          
           Write-Host "========================================"
-          Write-Host "🔗 FOTO: $link"
-          Write-Host "🔑 CLAVE: boosito123"
+          Write-Host "🔗 ENLACE CATBOX: $link"
+          Write-Host "🔑 CONTRASEÑA: boosito123"
           Write-Host "========================================"
 
-      - name: 3. Loop
+      - name: 3. Mantener vivo
         shell: pwsh
         run: |
-          while($true) { Write-Host "Running..."; Start-Sleep 60 }
+          Write-Host "Sesión activa. Esperando conexiones..."
+          while($true) { Start-Sleep 60 }
           
