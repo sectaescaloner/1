@@ -1,4 +1,4 @@
-Name: RUSTDESK_CATBOX_GO
+name: RUSTDESK_CATBOX_GO
 on:
   workflow_dispatch:
 
