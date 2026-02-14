@@ -1,4 +1,4 @@
-name: RUSTDESK_GOFILE_GO
+name: RUSTDESK_ARTIFACT_GO
 on:
   workflow_dispatch:
 
@@ -13,38 +13,40 @@ jobs:
           Invoke-WebRequest -Uri $url -OutFile "rd.msi"
           Start-Process msiexec.exe -ArgumentList "/i","rd.msi","/quiet","/norestart" -Wait
 
-      - name: 2. Captura y Subida a Gofile
+      - name: 2. Captura de Pantalla
         shell: pwsh
         run: |
           $rd = "C:\Program Files\RustDesk\rustdesk.exe"
-          & $rd --password "boosito123"
+          # Iniciar RustDesk con la clave
+          Start-Process $rd -ArgumentList "--password boosito123"
           Start-Sleep -Seconds 20
           
-          # Captura de pantalla
+          # Crear la captura
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
           $s = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
           $b = New-Object System.Drawing.Bitmap($s.Width, $s.Height)
           $g = [System.Drawing.Graphics]::FromImage($b)
           $g.CopyFromScreen(0,0,0,0,$b.Size)
-          $p = "$env:TEMP\screenshot.png"
+          # Guardamos en el directorio de trabajo para que el artifact lo encuentre fácil
+          $p = "screenshot.png"
           $b.Save($p, [System.Drawing.Imaging.ImageFormat]::Png)
           $g.Dispose(); $b.Dispose()
           
-          # Subida a Gofile
-          # Primero obtenemos un servidor disponible
-          $server = (Invoke-RestMethod -Uri "https://api.gofile.io/servers").data.servers[0].name
-          # Subimos el archivo
-          $upload = curl.exe -F "file=@$p" "https://$($server).gofile.io/contents/uploadfile"
-          $downloadLink = ($upload | ConvertFrom-Json).data.downloadPage
-          
           Write-Host "========================================"
-          Write-Host "🔗 ENLACE GOFILE: $downloadLink"
-          Write-Host "🔑 CONTRASEÑA: boosito123"
+          Write-Host "📸 Captura guardada como screenshot.png"
+          Write-Host "🔑 CLAVE: boosito123"
           Write-Host "========================================"
 
-      - name: 3. Loop Infinito
+      - name: 3. Subir Captura a Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustdesk-access
+          path: screenshot.png
+          retention-days: 1
+
+      - name: 4. Loop Infinito
         shell: pwsh
         run: |
-          Write-Host "Corriendo..."
+          Write-Host "Esperando conexión..."
           while($true) { Start-Sleep 60 }
-
+          
