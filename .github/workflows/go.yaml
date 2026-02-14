@@ -1,4 +1,4 @@
-name: RUSTDESK_CATBOX_GO
+name: RUSTDESK_GOFILE_GO
 on:
   workflow_dispatch:
 
@@ -13,7 +13,7 @@ jobs:
           Invoke-WebRequest -Uri $url -OutFile "rd.msi"
           Start-Process msiexec.exe -ArgumentList "/i","rd.msi","/quiet","/norestart" -Wait
 
-      - name: 2. Captura y Link (Catbox)
+      - name: 2. Captura y Subida a Gofile
         shell: pwsh
         run: |
           $rd = "C:\Program Files\RustDesk\rustdesk.exe"
@@ -26,22 +26,25 @@ jobs:
           $b = New-Object System.Drawing.Bitmap($s.Width, $s.Height)
           $g = [System.Drawing.Graphics]::FromImage($b)
           $g.CopyFromScreen(0,0,0,0,$b.Size)
-          $p = "$env:TEMP\z.png"
+          $p = "$env:TEMP\screenshot.png"
           $b.Save($p, [System.Drawing.Imaging.ImageFormat]::Png)
           $g.Dispose(); $b.Dispose()
           
-          # Subida a Catbox.moe
-          # Nota: Usamos la API pública de Catbox
-          $link = curl.exe -F "reqtype=fileupload" -F "fileToUpload=@$p" https://catbox.moe/user/api.php
+          # Subida a Gofile
+          # Primero obtenemos un servidor disponible
+          $server = (Invoke-RestMethod -Uri "https://api.gofile.io/servers").data.servers[0].name
+          # Subimos el archivo
+          $upload = curl.exe -F "file=@$p" "https://$($server).gofile.io/contents/uploadfile"
+          $downloadLink = ($upload | ConvertFrom-Json).data.downloadPage
           
           Write-Host "========================================"
-          Write-Host "🔗 ENLACE CATBOX: $link"
+          Write-Host "🔗 ENLACE GOFILE: $downloadLink"
           Write-Host "🔑 CONTRASEÑA: boosito123"
           Write-Host "========================================"
 
-      - name: 3. Mantener vivo
+      - name: 3. Loop Infinito
         shell: pwsh
         run: |
-          Write-Host "Sesión activa. Esperando conexiones..."
+          Write-Host "Corriendo..."
           while($true) { Start-Sleep 60 }
-          
+
