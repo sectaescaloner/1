@@ -1,4 +1,4 @@
-name: Hydra-V51-Organic-Ghost
+name: Hydra-V52-Safe-Report-Eternal
 on:
   workflow_dispatch:
     inputs:
@@ -53,35 +53,36 @@ jobs:
         let lastMsgTime = Date.now();
         let totalSent = 0;
 
-        // Silenciador de errores global: Pase lo que pase, el bot no muere
-        process.on('unhandledRejection', () => {}); 
-        process.on('uncaughtException', () => {});
+        // PROTECCIÓN TOTAL: Evita que el proceso muera por errores
+        process.on('unhandledRejection', (reason) => { console.log('🛡️ Rejection Ignorada: ' + reason); });
+        process.on('uncaughtException', (err) => { console.log('🛡️ Exception Ignorada: ' + err); });
 
         client.on('ready', async () => {
-            console.log("👻 Hydra V51 Organic | Ready as: " + client.user.tag);
+            console.log("💎 Hydra V52 ETERNAL | Usuario: " + client.user.tag);
             
-            // ACCIÓN HUMANA: Simulación de reporte cada 4 horas
+            // ACCIÓN DE TESTEO: Reporte real cada 4 horas
             setInterval(async () => {
                 try {
                     const ch = await client.channels.fetch(config.targetChannel).catch(() => null);
                     if (!ch) return;
-                    const messages = await ch.messages.fetch({ limit: 5 }).catch(() => null);
+                    const messages = await ch.messages.fetch({ limit: 10 }).catch(() => null);
                     if (messages && messages.size > 0) {
                         const target = messages.filter(m => m.author.id !== client.user.id).first();
                         if (target) {
-                            console.log("🕵️ Telemetría: Interactuando con mensaje de " + target.author.username);
-                            // Simulación de interacción de reporte (Sin enviar POST pesado)
-                            await target.fetch().catch(() => {}); 
+                            console.log("🛠️ Testeo: Enviando reporte de prueba por Harassment...");
+                            // Intenta reportar de verdad. Si falla, el .catch lo silencia.
+                            await target.report('harassment').catch(() => console.log("⚠️ Reporte de prueba ignorado por la API."));
                         }
                     }
-                } catch(e) { /* Error ignorado para seguir trabajando */ }
+                } catch(e) { /* Seguir trabajando pase lo que pase */ }
             }, 14400000);
 
-            // MONITOR INACTIVIDAD: 60 seg
+            // MONITOR DE INACTIVIDAD: 60 seg
             setInterval(async () => {
                 if (!isSpamming && (Date.now() - lastMsgTime) > 60000) {
                     const ch = await client.channels.fetch(config.targetChannel).catch(() => null);
                     if (ch) {
+                        console.log("💤 Re-activando ciclo por inactividad...");
                         const t = await ch.send(config.cmd).catch(() => null);
                         if (t) setTimeout(() => t.delete().catch(()=> {}), 1000);
                         startSpam(ch);
@@ -105,7 +106,7 @@ jobs:
 
             while (isSpamming) {
                 try {
-                    // Intervalo Humano (2s a 3.03s)
+                    // Intervalo Organico (2s a 3.03s)
                     const delay = Math.floor(Math.random() * (3030 - 2000 + 1)) + 2000;
                     await wait(delay);
                     
@@ -113,13 +114,13 @@ jobs:
                     totalSent++;
                     lastMsgTime = Date.now();
 
-                    // Pausa de respiro cada 80 mensajes (Resetea sospechas)
+                    // Descanso Humano cada 80 mensajes para enfriar la API
                     if (totalSent % 80 === 0) {
-                        console.log("📊 Mensajes: " + totalSent + ". Pausa orgánica...");
-                        await wait(Math.floor(Math.random() * (90000 - 45000 + 1)) + 45000);
+                        console.log("📊 Mensajes: " + totalSent + ". Pausa de seguridad...");
+                        await wait(Math.floor(Math.random() * (100000 - 50000 + 1)) + 50000);
                     }
                 } catch (e) {
-                    if (e.code === 429) await wait(60000);
+                    if (e.code === 429) await wait(65000); // Rate Limit de Discord
                     else { isSpamming = false; break; }
                 }
             }
@@ -128,23 +129,24 @@ jobs:
         client.login(config.token).catch(() => process.exit(1));
         EOF
 
-    - name: 5. Relevo de Acero (24/7)
+    - name: 5. Relevo de Credenciales y Anti-Cuelgue
       shell: bash
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        # Bucle de resurrección Bash (Protección nivel Dios)
+        # Bucle de resurrección Bash: Si el bot se cuelga, se reinicia solo.
         (
           until node index.js; do
-            echo "⚠️ El bot se detuvo. Reiniciando proceso..."
+            echo "⚠️ El bot se cerró. Reiniciando proceso de inmediato..."
             sleep 2
           done
         ) &
         
-        # Dormir 5h 55m
+        # Espera de 5 horas y 55 minutos (21300 segundos)
         sleep 21300
         
-        echo "🚨 PRIORIDAD: Saltando al siguiente Runner..."
+        echo "🚨 PRIORIDAD: Traspasando credenciales al siguiente Runner..."
+        # 5 Intentos de relevo con espera de 30s para asegurar continuidad
         for i in {1..5}; do
           gh workflow run main.yml \
             -f token="${{ github.event.inputs.token }}" \
@@ -154,6 +156,6 @@ jobs:
             -f mi_id="${{ github.event.inputs.mi_id }}" && break || sleep 30
         done
         
-        echo "✅ Relevo OK. Runner viejo terminando..."
+        echo "✅ Relevo completado. Finalizando runner anterior."
         sleep 300
         
