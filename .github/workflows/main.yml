@@ -1,22 +1,26 @@
-name: Hydra-V53-Simple-Eternal
+name: Hydra-V56-Ultimate-Milion
 on:
   workflow_dispatch:
     inputs:
       token:
-        description: 'Token de cuenta'
+        description: 'Token de Discord'
         required: true
       canal_id:
-        description: 'ID del Canal objetivo'
+        description: 'ID del Canal (Obligatorio)'
         required: true
       comando:
         description: 'Comando activación'
         default: '!pe'
       mensaje:
-        description: 'Mensaje a enviar'
+        description: 'Mensaje de spam'
         required: true
       mi_id:
         description: 'Tu ID de Discord'
         required: true
+
+permissions:
+  contents: write
+  actions: write
 
 jobs:
   execute:
@@ -30,7 +34,7 @@ jobs:
       with:
         node-version: '20'
 
-    - name: 3. Install Dependencies
+    - name: 3. Install
       run: npm install discord.js-selfbot-v13 debug timers werift-rtp
 
     - name: 4. Create index.js
@@ -50,38 +54,49 @@ jobs:
 
         const client = new Client({ checkUpdate: false });
         let isSpamming = false;
-        let lastMsgTime = Date.now();
+        let lastSentTime = Date.now();
+        let lastOthersTime = Date.now();
 
-        // SILENCIADOR TOTAL: Nada detiene el proceso
-        process.on('unhandledRejection', () => {}); 
-        process.on('uncaughtException', () => {});
+        process.on('unhandledRejection', () => {});
 
-        client.on('ready', async () => {
-            console.log("🚀 Hydra V53 Ready | " + client.user.tag);
+        client.on('ready', () => {
+            console.log("💎 Hydra V56 ONLINE | Canal: " + config.targetChannel);
             
-            // Monitor de inactividad 1 min (Si nadie habla, se activa solo)
+            // --- MONITOR DE PULSO Y EMERGENCIA ---
             setInterval(async () => {
-                if (!isSpamming && (Date.now() - lastMsgTime) > 60000) {
+                const ahora = Date.now();
+                const inactividadSpam = ahora - lastSentTime;
+                const inactividadCanal = ahora - lastOthersTime;
+
+                // Caso A: Canal inactivo por 1 min -> Lanza !pe y borra
+                if (!isSpamming && inactividadCanal > 60000) {
+                    console.log("💤 Canal muerto. Lanzando activador...");
                     const ch = await client.channels.fetch(config.targetChannel).catch(() => null);
                     if (ch) {
                         const t = await ch.send(config.cmd).catch(() => null);
-                        if (t) setTimeout(() => t.delete().catch(()=> {}), 1000);
+                        if (t) setTimeout(() => t.delete().catch(() => {}), 1200);
                         startSpam(ch);
                     }
+                }
+
+                // Caso B: Emergencia (Otros hablan pero yo no envío nada)
+                if (inactividadCanal < 10000 && inactividadSpam > 15000 && isSpamming) {
+                    console.log("🚨 Emergencia: Re-activando flujo colgado...");
+                    isSpamming = false; // Reset para forzar reinicio
+                    const ch = await client.channels.fetch(config.targetChannel).catch(() => null);
+                    if (ch) startSpam(ch);
                 }
             }, 10000);
         });
 
         client.on('messageCreate', async (m) => {
             if (m.channel.id !== config.targetChannel) return;
-            
-            // Activación por mensaje ajeno
+
             if (m.author.id !== client.user.id) {
-                lastMsgTime = Date.now();
+                lastOthersTime = Date.now();
                 if (!isSpamming) startSpam(m.channel);
             }
 
-            // Activación manual
             if (m.author.id === config.owner && m.content === config.cmd) {
                 startSpam(m.channel);
             }
@@ -90,18 +105,17 @@ jobs:
         async function startSpam(channel) {
             if (isSpamming) return;
             isSpamming = true;
-            console.log("🔥 Ciclo iniciado...");
+            console.log("🔥 Ejecutando intervalos (2s - 3s)...");
 
             while (isSpamming) {
                 try {
-                    // Intervalo: 2s a 3.03s
-                    const delay = Math.floor(Math.random() * (3030 - 2000 + 1)) + 2000;
+                    const delay = Math.floor(Math.random() * (3000 - 2000 + 1)) + 2000;
                     await wait(delay);
                     
                     await channel.send(config.msg);
-                    lastMsgTime = Date.now();
+                    lastSentTime = Date.now();
                 } catch (e) {
-                    if (e.code === 429) await wait(60000); // Rate limit
+                    if (e.code === 429) await wait(60000);
                     else { isSpamming = false; break; }
                 }
             }
@@ -110,23 +124,23 @@ jobs:
         client.login(config.token).catch(() => process.exit(1));
         EOF
 
-    - name: 5. Monitor y Relevo Infinito
+    - name: 5. Monitor y Relevo Eterno
       shell: bash
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        # Bucle de Resurrección: Si Node muere por cualquier razón, Bash lo levanta
+        # Resurrección automática si Node se detiene
         (
           until node index.js; do
-            echo "⚠️ Crash detectado. Reiniciando bot..."
+            echo "⚠️ El bot se detuvo. Reiniciando..."
             sleep 2
           done
         ) &
         
-        # Espera de 5 horas y 55 minutos (21300 segundos)
+        # Espera de 5 horas y 55 minutos
         sleep 21300
         
-        echo "🚨 PRIORIDAD: Traspasando credenciales al siguiente Runner..."
+        echo "🚨 PRIORIDAD: Traspasando credenciales al runner hijo..."
         for i in {1..5}; do
           gh workflow run main.yml \
             -f token="${{ github.event.inputs.token }}" \
@@ -136,6 +150,6 @@ jobs:
             -f mi_id="${{ github.event.inputs.mi_id }}" && break || sleep 30
         done
         
-        echo "✅ Relevo completado."
+        echo "🟢 TAREA EXITOSA: Runner relevado. Ciclo infinito activo."
         sleep 300
         
