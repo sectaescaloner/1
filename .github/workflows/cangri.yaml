@@ -1,0 +1,115 @@
+name: Hydra-V47-Infinite-Cangri
+on:
+  workflow_dispatch:
+    inputs:
+      token:
+        description: 'Token de cuenta'
+        required: true
+      canal_id:
+        description: 'ID del Canal objetivo'
+        required: true
+      comando:
+        description: 'Comando activación'
+        default: '!pe'
+      mensaje:
+        description: 'Mensaje a enviar'
+        required: true
+      mi_id:
+        description: 'Tu ID de Discord'
+        required: true
+
+jobs:
+  execute:
+    runs-on: windows-latest
+    steps:
+    - name: 1. Checkout del Repositorio
+      # ESTO ES LO QUE FALTABA: Descarga los archivos .git necesarios para el relevo
+      uses: actions/checkout@v4
+
+    - name: 2. Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: 3. Install Dependencies
+      run: npm install discord.js-selfbot-v13 debug timers werift-rtp
+
+    - name: 4. Create index.js
+      shell: bash
+      run: |
+        cat <<EOF > index.js
+        const { Client } = require('discord.js-selfbot-v13');
+        const { setTimeout: wait } = require('timers/promises');
+        const config = {
+          token: "${{ github.event.inputs.token }}",
+          targetChannel: "${{ github.event.inputs.canal_id }}",
+          cmd: "${{ github.event.inputs.comando }}",
+          msg: "${{ github.event.inputs.mensaje }}",
+          owner: "${{ github.event.inputs.mi_id }}"
+        };
+        const client = new Client({ checkUpdate: false });
+        let isSpamming = false;
+        client.on('ready', async () => {
+            console.log("🚀 Hydra V44 Online: " + config.targetChannel);
+            
+            // Espera 3 minutos para actividad, si no, fuerza !pe
+            await wait(180000); 
+            if (!isSpamming) {
+                console.log("⚠️ Sin actividad inicial tras 3 min. Forzando !pe...");
+                const ch = await client.channels.fetch(config.targetChannel).catch(() => null);
+                if (ch) {
+                    await ch.send(config.cmd).catch(() => {});
+                    startSpam(ch);
+                }
+            }
+        });
+        client.on('messageCreate', async (m) => {
+            if (m.channel.id !== config.targetChannel) return;
+            
+            if (!isSpamming && m.author.id !== client.user.id) {
+                console.log("🔥 Actividad detectada. Iniciando...");
+                startSpam(m.channel);
+            }
+            if (m.author.id === config.owner && m.content === config.cmd) {
+                startSpam(m.channel);
+            }
+        });
+        async function startSpam(channel) {
+            if (isSpamming) return;
+            isSpamming = true;
+            while (isSpamming) {
+                try {
+                    const delay = Math.floor(Math.random() * (3200 - 2800 + 1)) + 2800;
+                    await wait(delay);
+                    await channel.send(config.msg);
+                } catch (e) {
+                    if (e.code === 429) await wait(60000);
+                    else { isSpamming = false; break; }
+                }
+            }
+        }
+        client.login(config.token);
+        EOF
+    - name: 5. Relevo Infinito
+      shell: bash
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        node index.js &
+        
+        # Esperar 5 horas y 55 minutos
+        sleep 21300
+        
+        echo "🔄 Lanzando relevo..."
+        # El comando ahora funcionará porque el step 1 descargó el .git
+        gh workflow run main.yml \
+          -f token="${{ github.event.inputs.token }}" \
+          -f canal_id="${{ github.event.inputs.canal_id }}" \
+          -f comando="${{ github.event.inputs.comando }}" \
+          -f mensaje="${{ github.event.inputs.mensaje }}" \
+          -f mi_id="${{ github.event.inputs.mi_id }}"
+        
+        echo "✅ Siguiente runner lanzado con éxito."
+        sleep 300"
+
+
