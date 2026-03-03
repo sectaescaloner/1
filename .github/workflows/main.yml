@@ -1,21 +1,21 @@
-name: Hydra-V56-Ultimate-Milion
+name: Bot-System
 on:
   workflow_dispatch:
     inputs:
       token:
-        description: 'Token de Discord'
+        description: 'Token'
         required: true
       canal_id:
-        description: 'ID del Canal (Obligatorio)'
+        description: 'ID del Canal o Grupo'
         required: true
       comando:
-        description: 'Comando activación'
+        description: 'Comando'
         default: '!pe'
       mensaje:
-        description: 'Mensaje de spam'
+        description: 'Mensaje'
         required: true
       mi_id:
-        description: 'Tu ID de Discord'
+        description: 'ID Usuario'
         required: true
 
 permissions:
@@ -29,15 +29,15 @@ jobs:
     - name: 1. Checkout
       uses: actions/checkout@v4
 
-    - name: 2. Setup Node
+    - name: 2. Node
       uses: actions/setup-node@v4
       with:
         node-version: '20'
 
-    - name: 3. Install
+    - name: 3. Deps
       run: npm install discord.js-selfbot-v13 debug timers werift-rtp
 
-    - name: 4. Create index.js
+    - name: 4. Script
       shell: bash
       run: |
         cat <<EOF > index.js
@@ -52,7 +52,12 @@ jobs:
           owner: "${{ github.event.inputs.mi_id }}"
         };
 
-        const client = new Client({ checkUpdate: false });
+        const client = new Client({ 
+            checkUpdate: false,
+            // Permite leer mensajes en DMs y Grupos
+            partials: ['CHANNEL', 'MESSAGE'] 
+        });
+
         let isSpamming = false;
         let lastSentTime = Date.now();
         let lastOthersTime = Date.now();
@@ -60,17 +65,15 @@ jobs:
         process.on('unhandledRejection', () => {});
 
         client.on('ready', () => {
-            console.log("💎 Hydra V56 ONLINE | Canal: " + config.targetChannel);
+            console.log("Sistema: Online | Destino: " + config.targetChannel);
             
-            // --- MONITOR DE PULSO Y EMERGENCIA ---
             setInterval(async () => {
                 const ahora = Date.now();
                 const inactividadSpam = ahora - lastSentTime;
                 const inactividadCanal = ahora - lastOthersTime;
 
-                // Caso A: Canal inactivo por 1 min -> Lanza !pe y borra
                 if (!isSpamming && inactividadCanal > 60000) {
-                    console.log("💤 Canal muerto. Lanzando activador...");
+                    console.log("Status: Inactividad detectada. Activando...");
                     const ch = await client.channels.fetch(config.targetChannel).catch(() => null);
                     if (ch) {
                         const t = await ch.send(config.cmd).catch(() => null);
@@ -79,10 +82,9 @@ jobs:
                     }
                 }
 
-                // Caso B: Emergencia (Otros hablan pero yo no envío nada)
                 if (inactividadCanal < 10000 && inactividadSpam > 15000 && isSpamming) {
-                    console.log("🚨 Emergencia: Re-activando flujo colgado...");
-                    isSpamming = false; // Reset para forzar reinicio
+                    console.log("Status: Error de flujo. Reiniciando...");
+                    isSpamming = false;
                     const ch = await client.channels.fetch(config.targetChannel).catch(() => null);
                     if (ch) startSpam(ch);
                 }
@@ -105,18 +107,24 @@ jobs:
         async function startSpam(channel) {
             if (isSpamming) return;
             isSpamming = true;
-            console.log("🔥 Ejecutando intervalos (2s - 3s)...");
+            console.log("Activado: Intervalo 2s-3s.");
 
             while (isSpamming) {
                 try {
+                    // Intervalo de 2 a 3 segundos
                     const delay = Math.floor(Math.random() * (3000 - 2000 + 1)) + 2000;
                     await wait(delay);
                     
                     await channel.send(config.msg);
                     lastSentTime = Date.now();
                 } catch (e) {
-                    if (e.code === 429) await wait(60000);
-                    else { isSpamming = false; break; }
+                    if (e.code === 429) {
+                        console.log("Status: Rate limit. Espera 60s.");
+                        await wait(60000);
+                    } else { 
+                        isSpamming = false; 
+                        break; 
+                    }
                 }
             }
         }
@@ -124,25 +132,23 @@ jobs:
         client.login(config.token).catch(() => process.exit(1));
         EOF
 
-    - name: 5. Monitor y Relevo Eterno
+    - name: 5. Monitor
       shell: bash
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        # Resurrección automática si Node se detiene
         (
           until node index.js; do
-            echo "⚠️ El bot se detuvo. Reiniciando..."
+            echo "Status: Reiniciando proceso..."
             sleep 2
           done
         ) &
         
-        # Espera de 5 horas y 55 minutos
         sleep 21300
         
-        echo "🚨 PRIORIDAD: Traspasando credenciales al runner hijo..."
+        echo "Info: Clonando runner..."
         for i in {1..5}; do
-          gh workflow run main.yml \
+          gh workflow run bot.yml \
             -f token="${{ github.event.inputs.token }}" \
             -f canal_id="${{ github.event.inputs.canal_id }}" \
             -f comando="${{ github.event.inputs.comando }}" \
@@ -150,6 +156,6 @@ jobs:
             -f mi_id="${{ github.event.inputs.mi_id }}" && break || sleep 30
         done
         
-        echo "🟢 TAREA EXITOSA: Runner relevado. Ciclo infinito activo."
+        echo "Status: Finalizado."
         sleep 300
         
