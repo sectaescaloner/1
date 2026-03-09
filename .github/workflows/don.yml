@@ -8,14 +8,8 @@ on:
       canal_id:
         description: 'ID del Canal o Grupo'
         required: true
-      comando:
-        description: 'Comando'
-        default: '!pe'
       mensaje:
         description: 'Mensaje personalizado'
-        required: true
-      mi_id:
-        description: 'ID Usuario'
         required: true
 
 permissions:
@@ -47,9 +41,7 @@ jobs:
         const config = {
           token: "${{ github.event.inputs.token }}",
           targetChannel: "${{ github.event.inputs.canal_id }}",
-          cmd: "${{ github.event.inputs.comando }}",
-          msg: "${{ github.event.inputs.mensaje }}",
-          owner: "${{ github.event.inputs.mi_id }}"
+          msg: "${{ github.event.inputs.mensaje }}"
         };
 
         const client = new Client({ 
@@ -57,46 +49,39 @@ jobs:
             partials: ['CHANNEL', 'MESSAGE'] 
         });
 
-        let isSpamming = false;
-
         process.on('unhandledRejection', () => {});
 
-        client.on('ready', () => {
-            console.log("Sistema: Online | Canal: " + config.targetChannel);
-            console.log("Configuracion: 1 mensaje cada 60 minutos.");
-        });
-
-        client.on('messageCreate', async (m) => {
-            if (m.channel.id !== config.targetChannel) return;
-
-            // Activacion por comando o por actividad de otros
-            if ((m.author.id === config.owner && m.content === config.cmd) || m.author.id !== client.user.id) {
-                if (!isSpamming) startSpam(m.channel);
+        client.on('ready', async () => {
+            console.log("Sistema: Online | Destino: " + config.targetChannel);
+            console.log("Configuracion: Auto-start cada 1 minuto.");
+            
+            const channel = await client.channels.fetch(config.targetChannel).catch(() => null);
+            if (channel) {
+                runLoop(channel);
+            } else {
+                console.log("Error: No se encontro el canal.");
+                process.exit(1);
             }
         });
 
-        async function startSpam(channel) {
-            if (isSpamming) return;
-            isSpamming = true;
-            console.log("Activado: Ciclo de 1 hora iniciado.");
-
-            while (isSpamming) {
+        async function runLoop(channel) {
+            console.log("Activado: Ciclo de 1 minuto iniciado.");
+            while (true) {
                 try {
-                    // Envia el mensaje inmediatamente la primera vez
                     await channel.send(config.msg);
-                    console.log("Status: Mensaje enviado. Esperando 1 hora...");
+                    console.log("Status: Mensaje enviado. Esperando 1 minuto...");
                     
-                    // Espera 1 hora (3600000ms) + un pequeño margen aleatorio de 1-10 seg
-                    const randomExtra = Math.floor(Math.random() * 10000);
-                    await wait(3600000 + randomExtra);
+                    // 1 minuto = 60,000ms + variacion de 2-4 segundos
+                    const randomExtra = Math.floor(Math.random() * 2000) + 2000;
+                    await wait(60000 + randomExtra);
                     
                 } catch (e) {
                     if (e.code === 429) {
                         console.log("Status: Rate limit. Espera 60s.");
                         await wait(60000);
                     } else { 
-                        isSpamming = false; 
-                        break; 
+                        console.log("Error: " + e.message);
+                        await wait(5000);
                     }
                 }
             }
@@ -117,6 +102,7 @@ jobs:
           done
         ) &
         
+        # Relevo automatico a las 5h 55m
         sleep 21300
         
         echo "Info: Clonando runner..."
@@ -124,9 +110,7 @@ jobs:
           gh workflow run bot.yml \
             -f token="${{ github.event.inputs.token }}" \
             -f canal_id="${{ github.event.inputs.canal_id }}" \
-            -f comando="${{ github.event.inputs.comando }}" \
-            -f mensaje="${{ github.event.inputs.mensaje }}" \
-            -f mi_id="${{ github.event.inputs.mi_id }}" && break || sleep 30
+            -f mensaje="${{ github.event.inputs.mensaje }}" && break || sleep 30
         done
         
         echo "Status: Finalizado."
