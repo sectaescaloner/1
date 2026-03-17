@@ -1,0 +1,148 @@
+name: Hydra-Millon-Bot-Supreme
+on:
+  workflow_dispatch:
+    inputs:
+      token:
+        description: 'Token'
+        required: true
+      canal_id:
+        description: 'ID del Canal o Grupo'
+        required: true
+      comando:
+        description: 'Comando'
+        default: '!pe'
+      mensaje:
+        description: 'Mensaje'
+        required: true
+      mi_id:
+        description: 'ID Usuario'
+        required: true
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  execute:
+    runs-on: windows-latest
+    steps:
+    - name: 1. Checkout
+      uses: actions/checkout@v4
+
+    - name: 2. Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: 3. Deps
+      run: npm install discord.js-selfbot-v13 debug timers werift-rtp
+
+    - name: 4. Script
+      shell: bash
+      run: |
+        cat <<EOF > index.js
+        const { Client } = require('discord.js-selfbot-v13');
+        const { setTimeout: wait } = require('timers/promises');
+
+        const config = {
+          token: "${{ github.event.inputs.token }}",
+          targetChannel: "${{ github.event.inputs.canal_id }}",
+          cmd: "${{ github.event.inputs.comando }}",
+          msg: "${{ github.event.inputs.mensaje }}",
+          owner: "${{ github.event.inputs.mi_id }}"
+        };
+
+        const client = new Client({ checkUpdate: false });
+        let isSpamming = false;
+        let lastSentTime = Date.now();
+
+        process.on('unhandledRejection', () => {});
+        process.on('uncaughtException', () => {});
+
+        client.on('ready', () => {
+            console.log("Sistema: Online | Usuario: " + client.user.tag);
+            console.log("Canal Objetivo: " + config.targetChannel);
+            
+            // MONITOR DE EMERGENCIA (Revisión cada 30 seg)
+            setInterval(async () => {
+                const ahora = Date.now();
+                const inactividadPropia = ahora - lastSentTime;
+
+                // Si pasan 2 minutos (120000ms) sin enviar mensajes
+                if (inactividadPropia > 120000) {
+                    console.log("Status: Inactividad detectada (2 min). Lanzando emergencia...");
+                    isSpamming = false; 
+                    const ch = await client.channels.fetch(config.targetChannel).catch(() => null);
+                    if (ch) {
+                        const t = await ch.send(config.cmd).catch(() => null);
+                        if (t) setTimeout(() => t.delete().catch(() => {}), 1500);
+                        startSpam(ch);
+                    }
+                }
+            }, 30000);
+        });
+
+        client.on('messageCreate', async (m) => {
+            if (m.channel.id !== config.targetChannel) return;
+
+            // Activación por otros o por ti mismo
+            if (m.author.id !== client.user.id || (m.author.id === config.owner && m.content === config.cmd)) {
+                if (!isSpamming) startSpam(m.channel);
+            }
+        });
+
+        async function startSpam(channel) {
+            if (isSpamming) return;
+            isSpamming = true;
+            console.log("Activado: Ciclo de mensajes (2s - 3s).");
+
+            while (isSpamming) {
+                try {
+                    const delay = Math.floor(Math.random() * (3000 - 2000 + 1)) + 2000;
+                    await wait(delay);
+                    
+                    await channel.send(config.msg);
+                    lastSentTime = Date.now();
+                } catch (e) {
+                    if (e.code === 429) {
+                        console.log("Status: Rate limit. Espera 60s.");
+                        await wait(60000);
+                    } else { 
+                        isSpamming = false; 
+                        break; 
+                    }
+                }
+            }
+        }
+
+        client.login(config.token).catch(() => process.exit(1));
+        EOF
+
+    - name: 5. Monitor y Relevo
+      shell: bash
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        (
+          until node index.js; do
+            echo "Status: Reiniciando proceso..."
+            sleep 5
+          done
+        ) &
+        
+        # Relevo a las 5 horas (18000 segundos) para evitar el límite de GitHub
+        sleep 18000
+        
+        echo "Info: Clonando runner hijo (Relevo 5h)..."
+        for i in {1..5}; do
+          gh workflow run bot.yml \
+            -f token="${{ github.event.inputs.token }}" \
+            -f canal_id="${{ github.event.inputs.canal_id }}" \
+            -f comando="${{ github.event.inputs.comando }}" \
+            -f mensaje="${{ github.event.inputs.mensaje }}" \
+            -f mi_id="${{ github.event.inputs.mi_id }}" && break || sleep 30
+        done
+        
+        echo "Status: Tarea finalizada. Relevo enviado."
+        sleep 600
+        
