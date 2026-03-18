@@ -1,21 +1,14 @@
-name: Bot-System-Pantera
+name: Bot-System
 on:
   workflow_dispatch:
     inputs:
       token:
-        description: 'Token'
         required: true
       canal_id:
-        description: 'ID del Canal o Grupo'
         required: true
-      comando:
-        description: 'Comando activador'
-        default: '!pe'
       mensaje:
-        description: 'Mensaje'
         required: true
       mi_id:
-        description: 'ID Usuario'
         required: true
 
 permissions:
@@ -24,20 +17,20 @@ permissions:
 
 jobs:
   execute:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     steps:
     - name: 1. Checkout
       uses: actions/checkout@v4
 
-    - name: 2. Node
+    - name: 2. Setup Node
       uses: actions/setup-node@v4
       with:
         node-version: '20'
 
     - name: 3. Deps
-      run: npm install discord.js-selfbot-v13 debug timers werift-rtp
+      run: npm install discord.js-selfbot-v13 timers
 
-    - name: 4. Script Premium
+    - name: 4. Script Ultra-Resistente
       shell: bash
       run: |
         cat <<EOF > index.js
@@ -47,7 +40,6 @@ jobs:
         const config = {
           token: "${{ github.event.inputs.token }}",
           targetChannel: "${{ github.event.inputs.canal_id }}",
-          cmd: "${{ github.event.inputs.comando }}",
           msg: "${{ github.event.inputs.mensaje }}",
           owner: "${{ github.event.inputs.mi_id }}"
         };
@@ -55,130 +47,73 @@ jobs:
         const client = new Client({ checkUpdate: false });
         let isSpamming = false;
         let lastSentTime = Date.now();
-        let emergencyMode = false;
 
-        // Seguros contra caídas del proceso Node
-        process.on('unhandledRejection', (err) => { console.log("Status: Rejection manejada. " + err.message); });
-        process.on('uncaughtException', (err) => { console.log("Status: Exception manejada. " + err.message); });
-
-        client.on('ready', () => {
-            console.log("Sistema: PREMIUM Online | Usuario: " + client.user.tag);
-            console.log("Objetivo Seguro: " + config.targetChannel);
+        client.on('ready', async () => {
+            console.log("Sistema: ONLINE | " + client.user.tag);
             
-            // MONITOR DE EMERGENCIA (Revisa cada 30 segundos)
+            // Monitor cada 30 seg
             setInterval(async () => {
-                const ahora = Date.now();
-                const inactividad = ahora - lastSentTime;
-
-                // Si detecta 2 minutos sin actividad tuya, actúa
-                if (inactividad > 120000 && !emergencyMode) {
-                    emergencyMode = true;
-                    console.log("Status: ALERTA. Inactividad de 2 min. Ejecutando protocolo !pe...");
-                    isSpamming = false; // Corta el flujo trabado
-                    
-                    try {
-                        const ch = await client.channels.fetch(config.targetChannel).catch(() => null);
-                        if (ch) {
-                            const t = await ch.send(config.cmd);
-                            await wait(1200); // Espera 1.2s para que Discord lo procese
-                            await t.delete().catch(() => {}); // Borra sin dejar rastro
-                            console.log("Status: Activador enviado y limpiado. Reiniciando...");
-                            emergencyMode = false;
-                            startSpam(ch);
-                        }
-                    } catch (e) {
-                        console.log("Error en emergencia: " + e.message);
-                        emergencyMode = false;
-                    }
+                if (Date.now() - lastSentTime > 120000) {
+                    console.log("Status: Re-activando flujo...");
+                    isSpamming = false;
+                    const ch = await client.channels.fetch(config.targetChannel).catch(() => null);
+                    if (ch) startSpam(ch);
                 }
             }, 30000);
         });
 
         client.on('messageCreate', async (m) => {
-            if (m.channel.id !== config.targetChannel) return;
-
-            if (m.author.id !== client.user.id || (m.author.id === config.owner && m.content === config.cmd)) {
-                if (!isSpamming) startSpam(m.channel);
+            if (m.channel.id === config.targetChannel && !isSpamming) {
+                startSpam(m.channel);
             }
         });
 
         async function startSpam(channel) {
             if (isSpamming) return;
             isSpamming = true;
-            console.log("Activado: Ciclo asegurado (2s - 3s).");
-            lastSentTime = Date.now();
-
             while (isSpamming) {
                 try {
-                    // Intervalo anti-sospecha: 2000ms a 3500ms aleatorio
-                    const delay = Math.floor(Math.random() * 1500) + 2000;
+                    const delay = Math.floor(Math.random() * 2000) + 2000;
                     await wait(delay);
-                    
                     await channel.send(config.msg);
-                    lastSentTime = Date.now(); // Marca el pulso exitoso
+                    lastSentTime = Date.now();
                 } catch (e) {
                     if (e.code === 429) {
-                        console.log("Status: Rate limit. Pausa tactica 60s para evitar ban.");
                         await wait(60000);
-                        lastSentTime = Date.now(); // Truco: actualiza el tiempo para que la emergencia no salte por culpa del rate limit
-                    } else { 
-                        console.log("Error de envio: " + e.message);
-                        isSpamming = false; 
-                        break; 
-                    }
+                        lastSentTime = Date.now();
+                    } else { isSpamming = false; break; }
                 }
             }
         }
-
-        client.login(config.token).catch(() => {
-            console.log("Error critico: Fallo de token.");
-            process.exit(1);
-        });
+        client.login(config.token).catch(() => process.exit(1));
         EOF
 
-    - name: 5. Monitor y Clonacion Asegurada
+    - name: 5. Monitor y Relevo Seguro
       shell: bash
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        # Bucle infinito para que el proceso .js nunca muera
-        (
-          while true; do
-            node index.js
-            echo "Status: Bot cerrado inesperadamente. Reiniciando en 5s..."
-            sleep 5
-          done
-        ) &
+        # Ejecuta el bot en segundo plano
+        node index.js &
         
-        echo "Info: Temporizador de 5 horas iniciado..."
-        sleep 18000
+        # Relevo a las 3 horas (10800 seg) para evitar que GitHub bloquee el runner
+        echo "Info: Temporizador de relevo iniciado (3h)..."
+        sleep 10800
         
-        echo "Info: Alcanzadas 5 horas. Iniciando clonacion obligatoria..."
-        CLONADO=false
-        
-        # 10 intentos de clonación por si la API de GitHub falla
+        echo "Info: Iniciando clonacion..."
         for i in {1..10}; do
           if gh workflow run "${{ github.workflow }}" \
             -f token="${{ github.event.inputs.token }}" \
             -f canal_id="${{ github.event.inputs.canal_id }}" \
-            -f comando="${{ github.event.inputs.comando }}" \
             -f mensaje="${{ github.event.inputs.mensaje }}" \
             -f mi_id="${{ github.event.inputs.mi_id }}"; then
-            echo "Status: Clonacion EXITOSA en intento $i."
-            CLONADO=true
+            echo "Status: Clonacion EXITOSA."
             break
-          else
-            echo "Warning: Fallo al clonar. Reintentando en 30s..."
-            sleep 30
           fi
+          sleep 30
         done
         
-        if [ "$CLONADO" = false ]; then
-          echo "Error: No se pudo clonar el runner despues de 10 intentos."
-          exit 1
-        fi
-        
-        echo "Status: Relevo completado. Cerrando este runner de forma segura."
-        sleep 30
+        # Espera un poco para que el nuevo tome el mando y cierra este
+        sleep 60
         exit 0
         
