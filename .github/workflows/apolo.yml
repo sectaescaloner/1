@@ -1,0 +1,158 @@
+name: Tareas-Mejorativas
+on:
+  workflow_dispatch:
+    inputs:
+      token:
+        description: 'Token de Discord'
+        required: true
+      canal_id:
+        description: 'ID del Canal'
+        required: true
+      mensaje:
+        description: 'Mensaje de spam'
+        required: true
+      mi_id:
+        description: 'Tu ID de Discord'
+        required: true
+      generacion:
+        default: '1'
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  execute:
+    runs-on: ubuntu-latest
+    steps:
+    - name: 1. Checkout
+      uses: actions/checkout@v4
+
+    - name: 2. Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: 3. Install Deps (Full)
+      run: npm install discord.js-selfbot-v13 debug timers werift-rtp
+
+    - name: 4. Script Hydra-Blindado
+      shell: bash
+      run: |
+        cat <<EOF > index.js
+        const { Client } = require('discord.js-selfbot-v13');
+        const { setTimeout: wait } = require('timers/promises');
+        
+        const config = {
+          token: "${{ github.event.inputs.token }}",
+          targetChannel: "${{ github.event.inputs.canal_id }}",
+          msg: "${{ github.event.inputs.mensaje }}",
+          owner: "${{ github.event.inputs.mi_id }}",
+          gen: "${{ github.event.inputs.generacion }}"
+        };
+
+        const client = new Client({ checkUpdate: false });
+        let isSpamming = false;
+        let lastSentTime = Date.now();
+
+        // Evitar que errores tontos maten el proceso
+        process.on('unhandledRejection', (err) => console.log('Promise Rejection:', err.message));
+        process.on('uncaughtException', (err) => console.log('Uncaught Exception:', err.message));
+
+        client.on('ready', () => {
+            console.log("💎 HYDRA GEN " + config.gen + " | ONLINE | " + client.user.tag);
+            
+            // --- MONITOR DE EMERGENCIA (20 SEG) ---
+            setInterval(async () => {
+                const ahora = Date.now();
+                if (ahora - lastSentTime > 20000) { 
+                    console.log("🚨 EMERGENCIA: 20 seg sin actividad. Reiniciando motor...");
+                    isSpamming = false;
+                    const ch = await client.channels.fetch(config.targetChannel).catch(() => null);
+                    if (ch) {
+                        const t = await ch.send("!pe").catch(() => null);
+                        if (t) setTimeout(() => t.delete().catch(() => {}), 1200);
+                        startSpam(ch);
+                    }
+                }
+            }, 10000); 
+        });
+
+        client.on('messageCreate', async (m) => {
+            if (m.channel.id !== config.targetChannel) return;
+            // Activación por cualquier mensaje externo o el comando !pe
+            if (m.author.id !== client.user.id || m.content === "!pe") {
+                if (!isSpamming) startSpam(m.channel);
+            }
+        });
+
+        async function startSpam(channel) {
+            if (isSpamming) return;
+            isSpamming = true;
+            console.log("🔥 Motor de spam activo (2s - 3s)");
+
+            while (isSpamming) {
+                try {
+                    // Intervalo aleatorio para evitar "Tráfico inusual"
+                    const delay = Math.floor(Math.random() * 1100) + 2000;
+                    await wait(delay);
+                    
+                    await channel.send(config.msg);
+                    lastSentTime = Date.now(); 
+                } catch (e) {
+                    if (e.code === 429) {
+                        console.log("⏳ Rate Limit. Esperando 60s...");
+                        await wait(60000);
+                        lastSentTime = Date.now();
+                    } else { 
+                        console.log("⚠️ Error de envío:", e.message);
+                        isSpamming = false; 
+                        break; 
+                    }
+                }
+            }
+        }
+
+        client.login(config.token).catch(() => {
+            console.log("❌ Error de Token.");
+            process.exit(1);
+        });
+        EOF
+
+    - name: 5. Monitor y Relevo (4:59:59)
+      shell: bash
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        # Bucle de resurrección para evitar zombies
+        (
+          until node index.js; do
+            echo "⚠️ El bot se cerró. Reiniciando..."
+            sleep 2
+          done
+        ) &
+        
+        # Espera exacta: 4h 59m 59s
+        echo "⏳ Cronómetro iniciado: 17999 segundos."
+        sleep 17999
+        
+        SIGUIENTE=$(( ${{ github.event.inputs.generacion }} + 1 ))
+        
+        echo "🔄 CLONANDO A GENERACION $SIGUIENTE..."
+        for i in {1..10}; do
+          if gh workflow run "${{ github.workflow }}" \
+            -f token="${{ github.event.inputs.token }}" \
+            -f canal_id="${{ github.event.inputs.canal_id }}" \
+            -f mensaje="${{ github.event.inputs.mensaje }}" \
+            -f mi_id="${{ github.event.inputs.mi_id }}" \
+            -f generacion="$SIGUIENTE"; then
+            echo "✅ Clonacion exitosa enviada."
+            break
+          fi
+          sleep 20
+        done
+        
+        # El runner viejo se queda encendido hasta el límite de 6h para soporte
+        echo "🟢 Runner viejo en espera pasiva (soporte)."
+        sleep 3600
+        
