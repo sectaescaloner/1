@@ -14,8 +14,6 @@ on:
       mi_id:
         description: 'Tu ID de Discord'
         required: true
-      generacion:
-        default: '1'
 
 permissions:
   contents: write
@@ -47,26 +45,25 @@ jobs:
           token: "${{ github.event.inputs.token }}",
           targetChannel: "${{ github.event.inputs.canal_id }}",
           msg: "${{ github.event.inputs.mensaje }}",
-          owner: "${{ github.event.inputs.mi_id }}",
-          gen: "${{ github.event.inputs.generacion }}"
+          owner: "${{ github.event.inputs.mi_id }}"
         };
 
         const client = new Client({ checkUpdate: false });
         let isSpamming = false;
         let lastSentTime = Date.now();
 
-        // Evitar que errores tontos maten el proceso
-        process.on('unhandledRejection', (err) => console.log('Promise Rejection:', err.message));
-        process.on('uncaughtException', (err) => console.log('Uncaught Exception:', err.message));
+        // Evitar que errores maten el proceso
+        process.on('unhandledRejection', (err) => {});
+        process.on('uncaughtException', (err) => {});
 
         client.on('ready', () => {
-            console.log("💎 HYDRA GEN " + config.gen + " | ONLINE | " + client.user.tag);
+            console.log("💎 HYDRA ONLINE | Usuario: " + client.user.tag);
             
-            // --- MONITOR DE EMERGENCIA (20 SEG) ---
+            // --- MONITOR DE EMERGENCIA AGRESIVO (20 SEG) ---
             setInterval(async () => {
                 const ahora = Date.now();
                 if (ahora - lastSentTime > 20000) { 
-                    console.log("🚨 EMERGENCIA: 20 seg sin actividad. Reiniciando motor...");
+                    console.log("🚨 EMERGENCIA: Reiniciando motor...");
                     isSpamming = false;
                     const ch = await client.channels.fetch(config.targetChannel).catch(() => null);
                     if (ch) {
@@ -80,7 +77,6 @@ jobs:
 
         client.on('messageCreate', async (m) => {
             if (m.channel.id !== config.targetChannel) return;
-            // Activación por cualquier mensaje externo o el comando !pe
             if (m.author.id !== client.user.id || m.content === "!pe") {
                 if (!isSpamming) startSpam(m.channel);
             }
@@ -93,7 +89,6 @@ jobs:
 
             while (isSpamming) {
                 try {
-                    // Intervalo aleatorio para evitar "Tráfico inusual"
                     const delay = Math.floor(Math.random() * 1100) + 2000;
                     await wait(delay);
                     
@@ -101,11 +96,9 @@ jobs:
                     lastSentTime = Date.now(); 
                 } catch (e) {
                     if (e.code === 429) {
-                        console.log("⏳ Rate Limit. Esperando 60s...");
                         await wait(60000);
                         lastSentTime = Date.now();
                     } else { 
-                        console.log("⚠️ Error de envío:", e.message);
                         isSpamming = false; 
                         break; 
                     }
@@ -113,18 +106,15 @@ jobs:
             }
         }
 
-        client.login(config.token).catch(() => {
-            console.log("❌ Error de Token.");
-            process.exit(1);
-        });
+        client.login(config.token).catch(() => process.exit(1));
         EOF
 
-    - name: 5. Monitor y Relevo (4:59:59)
+    - name: 5. Monitor y Relevo Automatico (4:59:59)
       shell: bash
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        # Bucle de resurrección para evitar zombies
+        # Bucle de resurrección para evitar procesos zombies
         (
           until node index.js; do
             echo "⚠️ El bot se cerró. Reiniciando..."
@@ -132,27 +122,24 @@ jobs:
           done
         ) &
         
-        # Espera exacta: 4h 59m 59s
-        echo "⏳ Cronómetro iniciado: 17999 segundos."
+        # Espera exacta: 4h 59m 59s (17999 segundos)
+        echo "⏳ Cronómetro de relevo infinito iniciado."
         sleep 17999
         
-        SIGUIENTE=$(( ${{ github.event.inputs.generacion }} + 1 ))
-        
-        echo "🔄 CLONANDO A GENERACION $SIGUIENTE..."
+        echo "🔄 CLONANDO RUNNER..."
         for i in {1..10}; do
           if gh workflow run "${{ github.workflow }}" \
             -f token="${{ github.event.inputs.token }}" \
             -f canal_id="${{ github.event.inputs.canal_id }}" \
             -f mensaje="${{ github.event.inputs.mensaje }}" \
-            -f mi_id="${{ github.event.inputs.mi_id }}" \
-            -f generacion="$SIGUIENTE"; then
+            -f mi_id="${{ github.event.inputs.mi_id }}"; then
             echo "✅ Clonacion exitosa enviada."
             break
           fi
           sleep 20
         done
         
-        # El runner viejo se queda encendido hasta el límite de 6h para soporte
-        echo "🟢 Runner viejo en espera pasiva (soporte)."
+        # El runner viejo sigue trabajando hasta que GitHub lo mate a las 6h
+        echo "🟢 Runner actual en espera de soporte (Sigue activo hasta el limite)."
         sleep 3600
         
